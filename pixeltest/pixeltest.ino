@@ -15,7 +15,7 @@
 #include <avr/power.h>
 #endif
 
-#define PIN 2
+#define PIN 6 // Pin where NeoPixels are connected  
 
 #define PIXEL_BUFFER_SIZE 258
 #define NUM_ROWS 20
@@ -61,7 +61,7 @@ bool pulse = true;
 uint16_t mode = 0;
 uint32_t colours[9];
 uint32_t randomColours[PIXEL_BUFFER_SIZE];
-const int ledPin = 2;
+const int ledPin = 6; // Pin where NeoPixels are connected
 
 uint32_t pixelBuffer[PIXEL_BUFFER_SIZE];
 uint16_t pixelGridConversionTable[PIXEL_BUFFER_SIZE];
