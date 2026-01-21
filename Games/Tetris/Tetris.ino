@@ -18,11 +18,9 @@ Features retained:
 
 #define PIXEL_BUFFER_SIZE 300
 #include <Adafruit_NeoPixel.h>
-#include "Pixel_Grid.h"
-#include "LCD_Panel.h"
-#include "Shape.h"
-
 #include <avr/pgmspace.h>
+#include <PixelGridCore.h>
+
 
 #define PIN 6
 #define PIN_LEFT  3
