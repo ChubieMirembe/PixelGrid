@@ -1,24 +1,17 @@
 /*
 Breakout for PixelGrid (Adafruit_NeoPixel + PixelGridCore)
 
-Assumptions (matching your Tetris wiring/layout):
-- 10 x 20 matrix (W=10, MATRIX_ROWS=20)
-- Buttons:
-    LEFT  on PIN 3
-    ROT   on PIN 4   (used as "launch / serve" and "restart")
-    RIGHT on PIN 5
-- LED strip total buffer: 300 (matrix + digits area etc.)
-- 6-digit panel starts at LED index 214 (same as your Tetris)
-
-Gameplay:
-- Bricks at the top of the play area (below PREVIEW_ROWS)
-- Paddle at the bottom row
-- Ball bounces; miss = lose a life
-- ROT button serves ball when stuck on paddle
-- Score displayed on 6-digit panel
-
-No file copying required as long as PixelGridCore lives in your repo libraries folder
-and Arduino IDE Sketchbook location points to the repo root.
+Update:
+- Only the FIRST 8 play rows are occupied by bricks at start (play rows 0..7 filled).
+- Rows 8..16 start empty.
+- Every 15 seconds:
+    - bricks shift DOWN by 1 (within play rows 0..16)
+    - a NEW row is generated at play row 0
+- Each newly generated row uses ONE uniform colour across the row.
+- Row colours cycle through the full 0..255 RGB wheel in fixed steps.
+- No drawn wall edges.
+- One miss = game over.
+- ROT button = serve / restart.
 */
 
 #define PIXEL_BUFFER_SIZE 300
@@ -31,8 +24,8 @@ and Arduino IDE Sketchbook location points to the repo root.
 #define PIN_ROT   4
 #define PIN_RIGHT 5
 
-static const uint8_t PREVIEW_ROWS = 2;
-static const uint8_t PLAY_H = 18;
+static const uint8_t PREVIEW_ROWS = 0;
+static const uint8_t PLAY_H = 20;
 static const uint8_t W = 10;
 static const uint8_t MATRIX_ROWS = PREVIEW_ROWS + PLAY_H;
 
@@ -81,11 +74,8 @@ Btn btnL, btnR, btnAct;
 uint32_t PREVIEW_BG_COLOR_U32;
 uint32_t PLAY_BG_COLOR_U32;
 
-uint32_t BRICK_COLORS_U32[4];
 uint32_t PADDLE_COLOR_U32;
 uint32_t BALL_COLOR_U32;
-uint32_t WALL_COLOR_U32;
-uint32_t LIFE_COLOR_U32;
 
 static inline uint8_t colR(uint32_t c) { return (uint8_t)((c >> 16) & 0xFF); }
 static inline uint8_t colG(uint32_t c) { return (uint8_t)((c >> 8) & 0xFF); }
@@ -106,36 +96,47 @@ static inline uint16_t previewRowToPixelRow(uint8_t p) {
   return (uint16_t)(MATRIX_ROWS - 1 - p);
 }
 
-// ---------- Breakout state ----------
-static const uint8_t BRICK_ROWS = 5;          // rows of bricks in play space
-static const uint8_t BRICK_COLS = W;          // one brick per column
-static const uint8_t BRICK_TOP_ROW = 0;       // starts at play row 0
-static const uint8_t PADDLE_Y = PLAY_H - 1;   // bottom play row
-static const uint8_t PADDLE_W = 3;            // paddle width in cells
+// ---------- Breakout constants ----------
+static const uint8_t PADDLE_Y = PLAY_H - 1;      // row 17
+static const uint8_t PADDLE_W = 3;
 
-static const uint16_t FRAME_MS = 16;          // ~60fps
-static const uint16_t BALL_STEP_MS = 110;     // ball speed (lower = faster)
+static const uint16_t FRAME_MS = 16;
+static const uint16_t BALL_STEP_MS = 110;
 static const uint16_t BALL_STEP_MIN_MS = 55;
-static const uint16_t BALL_SPEEDUP_EVERY = 8; // speed up after this many bricks
-static const uint8_t  WALLS_ENABLED = 1;      // draw side walls in render
+static const uint16_t BALL_SPEEDUP_EVERY = 10;
 
-// bricks[y][x] = 0 empty, 1..4 = brick color tier
-uint8_t bricks[BRICK_ROWS][BRICK_COLS];
+static const uint16_t BRICK_DROP_MS = 15000;     // 15 seconds
 
-int8_t paddleX = 3;        // leftmost x of paddle
-bool ballStuck = true;     // ball on paddle waiting for serve
+// Bricks live in play rows 0..16 inclusive (row 17 is paddle)
+static const uint8_t BRICK_TOP = 0;
+static const uint8_t BRICK_BOTTOM = PLAY_H - 2;  // 16
+static const uint8_t BRICK_H = (uint8_t)(BRICK_BOTTOM + 1); // 17 rows total for bricks space
+
+static const uint8_t INITIAL_FILLED_ROWS = 8;    // play rows 0..7 filled at start
+
+// RGB wheel stepping
+static const uint8_t COLOR_STEP = 9;
+
+// ---------- Game state ----------
+// per-cell brick colour, 0 = empty
+uint32_t bricksGrid[BRICK_H][W];
+
+int8_t paddleX = 3;
+bool ballStuck = true;
 int8_t ballX = 0;
 int8_t ballY = 0;
-int8_t ballVX = 1;         // -1 or +1
-int8_t ballVY = -1;        // -1 up, +1 down
+int8_t ballVX = 1;
+int8_t ballVY = -1;
 
-uint8_t lives = 3;
 uint32_t score = 0;
 bool gameOver = false;
 
 uint16_t ballStepMs = BALL_STEP_MS;
 uint32_t tBall = 0;
+uint32_t tBrickDrop = 0;
 uint16_t bricksHit = 0;
+
+uint8_t wheelPos = 0;
 
 // ---------- Digits ----------
 static void updateScoreDigits(uint32_t s) {
@@ -146,38 +147,91 @@ static void updateScoreDigits(uint32_t s) {
   lcdPanel->changeCharArray(out);
 }
 
-// ---------- Game helpers ----------
+// ---------- Colour wheel ----------
+static uint32_t wheelColor(uint8_t pos) {
+  pos = (uint8_t)(255 - pos);
+  if (pos < 85) {
+    return strip.Color((uint8_t)(255 - pos * 3), 0, (uint8_t)(pos * 3));
+  }
+  if (pos < 170) {
+    pos = (uint8_t)(pos - 85);
+    return strip.Color(0, (uint8_t)(pos * 3), (uint8_t)(255 - pos * 3));
+  }
+  pos = (uint8_t)(pos - 170);
+  return strip.Color((uint8_t)(pos * 3), (uint8_t)(255 - pos * 3), 0);
+}
+
+// ---------- Brick helpers ----------
 static void clearBricks() {
-  for (uint8_t y = 0; y < BRICK_ROWS; ++y) {
-    for (uint8_t x = 0; x < BRICK_COLS; ++x) {
-      bricks[y][x] = 0;
-    }
+  for (uint8_t y = 0; y < BRICK_H; ++y) {
+    for (uint8_t x = 0; x < W; ++x) bricksGrid[y][x] = 0;
   }
 }
 
-static void buildLevel() {
+static void generateBrickRowAt(uint8_t row, uint32_t c) {
+  if (row >= BRICK_H) return;
+  for (uint8_t x = 0; x < W; ++x) bricksGrid[row][x] = c;
+}
+
+static void fillInitialBricks() {
+  // Fill only rows 0..7; rows 8..16 remain empty.
   clearBricks();
-  // Simple gradient tiers from top to bottom
-  // Top row hardest/brightest, etc.
-  for (uint8_t y = 0; y < BRICK_ROWS; ++y) {
-    uint8_t tier = 1;
-    if (y == 0) tier = 4;
-    else if (y == 1) tier = 3;
-    else if (y == 2) tier = 2;
-    else tier = 1;
-
-    for (uint8_t x = 0; x < BRICK_COLS; ++x) {
-      bricks[y][x] = tier;
-    }
+  for (uint8_t y = 0; y < INITIAL_FILLED_ROWS; ++y) {
+    uint32_t c = wheelColor(wheelPos);
+    wheelPos = (uint8_t)(wheelPos + COLOR_STEP);
+    generateBrickRowAt(y, c);
   }
 }
 
+// Every 15s: shift bricks down; new row at top.
+// If bottom brick row already occupied, next shift would push into paddle lane -> game over.
+static void brickDropTick() {
+  for (uint8_t x = 0; x < W; ++x) {
+    if (bricksGrid[BRICK_BOTTOM][x] != 0) {
+      gameOver = true;
+      return;
+    }
+  }
+
+  for (int8_t y = (int8_t)BRICK_BOTTOM; y > (int8_t)BRICK_TOP; --y) {
+    for (uint8_t x = 0; x < W; ++x) {
+      bricksGrid[(uint8_t)y][x] = bricksGrid[(uint8_t)(y - 1)][x];
+    }
+  }
+
+  uint32_t c = wheelColor(wheelPos);
+  wheelPos = (uint8_t)(wheelPos + COLOR_STEP);
+  generateBrickRowAt(BRICK_TOP, c);
+}
+
+static bool hitBrickAt(int8_t x, int8_t y) {
+  if (x < 0 || x >= (int8_t)W) return false;
+  if (y < (int8_t)BRICK_TOP || y > (int8_t)BRICK_BOTTOM) return false;
+
+  uint32_t v = bricksGrid[(uint8_t)y][(uint8_t)x];
+  if (v == 0) return false;
+
+  bricksGrid[(uint8_t)y][(uint8_t)x] = 0;
+
+  score += 10UL;
+  bricksHit++;
+
+  if (bricksHit % BALL_SPEEDUP_EVERY == 0) {
+    if (ballStepMs > BALL_STEP_MIN_MS) {
+      ballStepMs = (uint16_t)max((int)BALL_STEP_MIN_MS, (int)ballStepMs - 6);
+    }
+  }
+
+  updateScoreDigits(score);
+  return true;
+}
+
+// ---------- Ball / Paddle helpers ----------
 static void resetBallOnPaddle() {
   ballStuck = true;
   ballVX = (random(0, 2) == 0) ? -1 : 1;
   ballVY = -1;
 
-  // Center ball above paddle
   ballX = (int8_t)(paddleX + (PADDLE_W / 2));
   ballY = (int8_t)(PADDLE_Y - 1);
 
@@ -186,24 +240,20 @@ static void resetBallOnPaddle() {
 
 static void resetGame() {
   score = 0;
-  lives = 3;
   gameOver = false;
 
   paddleX = (W - PADDLE_W) / 2;
-  buildLevel();
 
   ballStepMs = BALL_STEP_MS;
   bricksHit = 0;
 
+  wheelPos = 0;
+  fillInitialBricks();
+
   updateScoreDigits(score);
   resetBallOnPaddle();
-}
 
-static bool isPaddleCell(int8_t x, int8_t y) {
-  if (y != (int8_t)PADDLE_Y) return false;
-  if (x < paddleX) return false;
-  if (x >= paddleX + (int8_t)PADDLE_W) return false;
-  return true;
+  tBrickDrop = millis();
 }
 
 static void clampPaddle() {
@@ -226,60 +276,13 @@ static void serveBall() {
   tBall = millis();
 }
 
-// return true if brick existed and was removed
-static bool hitBrickAt(int8_t x, int8_t y) {
-  if (x < 0 || x >= (int8_t)W) return false;
-  if (y < (int8_t)BRICK_TOP_ROW || y >= (int8_t)(BRICK_TOP_ROW + BRICK_ROWS)) return false;
-
-  uint8_t by = (uint8_t)(y - BRICK_TOP_ROW);
-  uint8_t bx = (uint8_t)x;
-
-  uint8_t v = bricks[by][bx];
-  if (v == 0) return false;
-
-  bricks[by][bx] = 0;
-  score += 10UL * (uint32_t)v;   // tier-based scoring
-  bricksHit++;
-
-  if (bricksHit % BALL_SPEEDUP_EVERY == 0) {
-    if (ballStepMs > BALL_STEP_MIN_MS) ballStepMs = (uint16_t)max((int)BALL_STEP_MIN_MS, (int)ballStepMs - 8);
-  }
-
-  updateScoreDigits(score);
-  return true;
-}
-
-static bool anyBricksLeft() {
-  for (uint8_t y = 0; y < BRICK_ROWS; ++y) {
-    for (uint8_t x = 0; x < BRICK_COLS; ++x) {
-      if (bricks[y][x] != 0) return true;
-    }
-  }
-  return false;
-}
-
-static void nextLevelOrWin() {
-  if (anyBricksLeft()) return;
-
-  // Level clear bonus
-  score += 250;
-  updateScoreDigits(score);
-
-  // Rebuild level and speed up a bit
-  buildLevel();
-  if (ballStepMs > BALL_STEP_MIN_MS) ballStepMs = (uint16_t)max((int)BALL_STEP_MIN_MS, (int)ballStepMs - 12);
-
-  resetBallOnPaddle();
-}
-
-// Core ball step with simple collision
 static void stepBallOnce() {
   if (ballStuck) return;
 
   int8_t nx = (int8_t)(ballX + ballVX);
   int8_t ny = (int8_t)(ballY + ballVY);
 
-  // Side walls
+  // side bounds bounce (no drawn walls)
   if (nx < 0) {
     nx = 0;
     ballVX = 1;
@@ -288,60 +291,44 @@ static void stepBallOnce() {
     ballVX = -1;
   }
 
-  // Top of play area (ny < 0)
+  // top bounce
   if (ny < 0) {
     ny = 0;
     ballVY = 1;
   }
 
-  // Brick collision check
-  // We do a simple "try move, if brick hit invert Y; if still brick maybe invert X too" approach.
-  bool brickHit = false;
+  // brick collision
   if (hitBrickAt(nx, ny)) {
-    brickHit = true;
     ballVY = (int8_t)(-ballVY);
     ny = (int8_t)(ballY + ballVY);
   } else {
-    // Try hitting brick on X-only or Y-only to reduce tunneling
     if (hitBrickAt(nx, ballY)) {
-      brickHit = true;
       ballVX = (int8_t)(-ballVX);
       nx = (int8_t)(ballX + ballVX);
     } else if (hitBrickAt(ballX, ny)) {
-      brickHit = true;
       ballVY = (int8_t)(-ballVY);
       ny = (int8_t)(ballY + ballVY);
     }
   }
 
-  if (brickHit) {
-    nextLevelOrWin();
-  }
+  // paddle collision
+  if (ny == (int8_t)PADDLE_Y && ballVY > 0) {
+    if (nx >= paddleX && nx < paddleX + (int8_t)PADDLE_W) {
+      ballVY = -1;
+      ny = (int8_t)(PADDLE_Y - 1);
 
-  // Paddle collision
-  if (ny == (int8_t)(PADDLE_Y) && nx >= paddleX && nx < paddleX + (int8_t)PADDLE_W && ballVY > 0) {
-    // Bounce up
-    ballVY = -1;
-    ny = (int8_t)(PADDLE_Y - 1);
-
-    // Angle control based on where it hit the paddle
-    int8_t center = (int8_t)(paddleX + (PADDLE_W / 2));
-    if (nx < center) ballVX = -1;
-    else if (nx > center) ballVX = 1;
-    else {
-      // center hit: keep vx or randomize if zero-ish behavior
-      if (ballVX == 0) ballVX = (random(0, 2) == 0) ? -1 : 1;
+      int8_t center = (int8_t)(paddleX + (PADDLE_W / 2));
+      if (nx < center) ballVX = -1;
+      else if (nx > center) ballVX = 1;
+      else {
+        if (ballVX == 0) ballVX = (random(0, 2) == 0) ? -1 : 1;
+      }
     }
   }
 
-  // Bottom (miss) -> lose life
+  // miss -> game over
   if (ny > (int8_t)PADDLE_Y) {
-    if (lives > 0) lives--;
-    if (lives == 0) {
-      gameOver = true;
-    } else {
-      resetBallOnPaddle();
-    }
+    gameOver = true;
     return;
   }
 
@@ -366,15 +353,7 @@ static void drawBackground() {
   }
 }
 
-static void drawLivesInPreview() {
-  // Draw lives as small blocks on the left of preview row 0
-  // Each life uses one cell; max shown up to 5 (safe for W=10)
-  uint8_t shown = (lives > 5) ? 5 : lives;
-  for (uint8_t i = 0; i < shown; ++i) {
-    pixelGrid->setGridCellColour(previewRowToPixelRow(0), i, LIFE_COLOR_U32);
-  }
-
-  // Also show "ball stuck" indicator on preview row 1, right side
+static void drawPreviewIndicator() {
   if (ballStuck && !gameOver) {
     for (uint8_t x = W - 3; x < W; ++x) {
       pixelGrid->setGridCellColour(previewRowToPixelRow(1), x, dimColor(BALL_COLOR_U32, 35));
@@ -383,14 +362,12 @@ static void drawLivesInPreview() {
 }
 
 static void drawBricks() {
-  for (uint8_t y = 0; y < BRICK_ROWS; ++y) {
-    uint8_t py = (uint8_t)(BRICK_TOP_ROW + y);
-    uint16_t pixelRow = playRowToPixelRow(py);
-    for (uint8_t x = 0; x < BRICK_COLS; ++x) {
-      uint8_t v = bricks[y][x];
-      if (v == 0) continue;
-      uint8_t tier = (v > 4) ? 4 : v;
-      pixelGrid->setGridCellColour(pixelRow, x, BRICK_COLORS_U32[tier - 1]);
+  for (uint8_t y = BRICK_TOP; y <= BRICK_BOTTOM; ++y) {
+    uint16_t pixelRow = playRowToPixelRow(y);
+    for (uint8_t x = 0; x < W; ++x) {
+      uint32_t c = bricksGrid[y][x];
+      if (c == 0) continue;
+      pixelGrid->setGridCellColour(pixelRow, x, c);
     }
   }
 }
@@ -412,18 +389,6 @@ static void drawBall() {
   pixelGrid->setGridCellColour(pixelRow, (uint16_t)ballX, BALL_COLOR_U32);
 }
 
-static void drawWalls() {
-  if (!WALLS_ENABLED) return;
-
-  // Side walls: draw a subtle vertical border in play area
-  uint32_t c = dimColor(WALL_COLOR_U32, 35);
-  for (uint8_t pr = 0; pr < PLAY_H; ++pr) {
-    uint16_t r = playRowToPixelRow(pr);
-    pixelGrid->setGridCellColour(r, 0, c);
-    pixelGrid->setGridCellColour(r, W - 1, c);
-  }
-}
-
 static void finalizeDigitsAndShow() {
   lcdPanel->render();
   pixelGrid->render();
@@ -432,7 +397,6 @@ static void finalizeDigitsAndShow() {
 
 static void renderFrame() {
   if (gameOver) {
-    // Red-tint screen on game over
     uint32_t c = strip.Color(30, 0, 0);
     for (uint8_t p = 0; p < PREVIEW_ROWS; ++p) {
       uint16_t r = previewRowToPixelRow(p);
@@ -447,8 +411,7 @@ static void renderFrame() {
   }
 
   drawBackground();
-  drawLivesInPreview();
-  drawWalls();
+  drawPreviewIndicator();
   drawBricks();
   drawPaddle();
   drawBall();
@@ -463,20 +426,11 @@ void setup() {
   strip.begin();
   strip.show();
 
-  // Background colors
   PREVIEW_BG_COLOR_U32 = strip.Color(60, 60, 90);
   PLAY_BG_COLOR_U32    = strip.Color(6, 6, 12);
 
-  // Game colors
-  BRICK_COLORS_U32[0] = strip.Color(0, 170, 255);
-  BRICK_COLORS_U32[1] = strip.Color(0, 220, 120);
-  BRICK_COLORS_U32[2] = strip.Color(240, 210, 0);
-  BRICK_COLORS_U32[3] = strip.Color(255, 90, 0);
-
   PADDLE_COLOR_U32 = strip.Color(220, 220, 220);
   BALL_COLOR_U32   = strip.Color(255, 255, 255);
-  WALL_COLOR_U32   = strip.Color(200, 200, 255);
-  LIFE_COLOR_U32   = strip.Color(255, 80, 80);
 
   pixelGrid = new Pixel_Grid(&strip, 0, MATRIX_ROWS, W);
   lcdPanel  = new LCD_Panel(&strip, 214, 6, strip.Color(255, 255, 255));
@@ -488,7 +442,6 @@ void setup() {
   updateScoreDigits(0);
   lcdPanel->render();
 
-  // Initial clear draw
   drawBackground();
   pixelGrid->render();
   strip.show();
@@ -507,7 +460,6 @@ void loop() {
   btnAct.update();
 
   if (gameOver) {
-    // ROT to restart
     if (btnAct.pressedEdge()) resetGame();
     renderFrame();
     btnL.latch();
@@ -516,8 +468,20 @@ void loop() {
     return;
   }
 
-  // Paddle movement (edge-based, but supports holding by repeating every few frames)
-  // Simple hold repeat using stable state
+  // Bricks drop every 15 seconds
+  if (now - tBrickDrop >= BRICK_DROP_MS) {
+    tBrickDrop = now;
+    brickDropTick();
+    if (gameOver) {
+      renderFrame();
+      btnL.latch();
+      btnR.latch();
+      btnAct.latch();
+      return;
+    }
+  }
+
+  // Paddle movement with basic repeat
   static uint8_t repeatCounter = 0;
   repeatCounter++;
 
@@ -534,7 +498,6 @@ void loop() {
       stepBallOnce();
     }
   } else {
-    // keep ball positioned on paddle
     ballX = (int8_t)(paddleX + (PADDLE_W / 2));
     ballY = (int8_t)(PADDLE_Y - 1);
   }
