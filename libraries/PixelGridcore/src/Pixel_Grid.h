@@ -1,3 +1,5 @@
+#pragma once
+
 #define PIXEL_BUFFER_SIZE 258
 #include "Shape.h"
 class Shape;

@@ -1,3 +1,5 @@
+#pragma once
+
 #include "LCD_Digit.h"
 class LCD_Panel {
   private:
