@@ -1,19 +1,4 @@
 /*
-Tetris using PixelGrid classes (Adafruit_NeoPixel)
-
-Scoring updated to classic (NES-style) line clear scoring:
-- Single:  40  * (level + 1)
-- Double:  100 * (level + 1)
-- Triple:  300 * (level + 1)
-- Tetris:  1200* (level + 1)
-
-Level progression unchanged:
-- level increases every LINES_PER_LEVEL total lines cleared
-
-Soft drop scoring:
-- +1 point per row descended while joystick DOWN is held
-  (only when a successful downward move occurs)
-
 Controls (updated):
 - LED pin: 2
 - Button 1 (pin 3): rotate left
