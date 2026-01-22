@@ -1,17 +1,30 @@
 /*
 Breakout for PixelGrid (Adafruit_NeoPixel + PixelGridCore)
 
-Update:
-- Only the FIRST 8 play rows are occupied by bricks at start (play rows 0..7 filled).
-- Rows 8..16 start empty.
-- Every 15 seconds:
-    - bricks shift DOWN by 1 (within play rows 0..16)
-    - a NEW row is generated at play row 0
-- Each newly generated row uses ONE uniform colour across the row.
-- Row colours cycle through the full 0..255 RGB wheel in fixed steps.
+Pin layout MATCHES your Tetris layout:
+
+LED:
+- LED DATA: pin 2
+
+Buttons (serve/restart ONLY):
+- Button 1 (pin 3): serve / restart
+- Button 2 (pin 4): serve / restart
+- Button 3 (pin 9): serve / restart
+- Button 4 (pin 10): serve / restart
+
+Joystick (movement ONLY):
+- LEFT  (pin 6): move left (repeat while held)
+- RIGHT (pin 7): move right (repeat while held)
+- UP    (pin 5): unused (can be extra serve if you want)
+- DOWN  (pin 8): unused
+
+Game features retained:
+- Only first 8 play rows filled at start (rows 0..7).
+- Rows 8..18 start empty.
+- Every 15 seconds: bricks shift DOWN by 1; new row generated at top.
+- Each generated row is one uniform colour, wheel cycles.
 - No drawn wall edges.
 - One miss = game over.
-- ROT button = serve / restart.
 */
 
 #define PIXEL_BUFFER_SIZE 300
@@ -19,17 +32,26 @@ Update:
 #include <avr/pgmspace.h>
 #include <PixelGridCore.h>
 
-#define PIN 6
-#define PIN_LEFT  3
-#define PIN_ROT   4
-#define PIN_RIGHT 5
+#define PIN_LED 2
+
+// Buttons (match Tetris layout) - serve/restart
+#define PIN_BTN1 3
+#define PIN_BTN2 4
+#define PIN_BTN3 9
+#define PIN_BTN4 10
+
+// Joystick directions (match Tetris layout) - movement
+#define PIN_JOY_UP    5   // unused
+#define PIN_JOY_LEFT  6   // move left (repeat)
+#define PIN_JOY_RIGHT 7   // move right (repeat)
+#define PIN_JOY_DOWN  8   // unused
 
 static const uint8_t PREVIEW_ROWS = 0;
 static const uint8_t PLAY_H = 20;
 static const uint8_t W = 10;
 static const uint8_t MATRIX_ROWS = PREVIEW_ROWS + PLAY_H;
 
-Adafruit_NeoPixel strip(PIXEL_BUFFER_SIZE, PIN, NEO_GRB + NEO_KHZ800);
+Adafruit_NeoPixel strip(PIXEL_BUFFER_SIZE, PIN_LED, NEO_GRB + NEO_KHZ800);
 
 Pixel_Grid* pixelGrid;
 LCD_Panel* lcdPanel;
@@ -68,12 +90,12 @@ struct Btn {
   void latch() { prevStable = stable; }
 };
 
-Btn btnL, btnR, btnAct;
+// Inputs
+Btn btn1, btn2, btn3, btn4;
+Btn joyL, joyR, joyU_unused, joyD_unused;
 
 // ---------- Colors ----------
-uint32_t PREVIEW_BG_COLOR_U32;
 uint32_t PLAY_BG_COLOR_U32;
-
 uint32_t PADDLE_COLOR_U32;
 uint32_t BALL_COLOR_U32;
 
@@ -92,12 +114,9 @@ static inline uint32_t dimColor(uint32_t color, uint8_t percent) {
 static inline uint16_t playRowToPixelRow(uint8_t logicalRow) {
   return (uint16_t)(MATRIX_ROWS - 1 - (PREVIEW_ROWS + logicalRow));
 }
-static inline uint16_t previewRowToPixelRow(uint8_t p) {
-  return (uint16_t)(MATRIX_ROWS - 1 - p);
-}
 
 // ---------- Breakout constants ----------
-static const uint8_t PADDLE_Y = PLAY_H - 1;      // row 17
+static const uint8_t PADDLE_Y = PLAY_H - 1;      // bottom row (19)
 static const uint8_t PADDLE_W = 3;
 
 static const uint16_t FRAME_MS = 16;
@@ -107,10 +126,10 @@ static const uint16_t BALL_SPEEDUP_EVERY = 10;
 
 static const uint16_t BRICK_DROP_MS = 15000;     // 15 seconds
 
-// Bricks live in play rows 0..16 inclusive (row 17 is paddle)
+// Bricks live in play rows 0..18 inclusive (row 19 is paddle)
 static const uint8_t BRICK_TOP = 0;
-static const uint8_t BRICK_BOTTOM = PLAY_H - 2;  // 16
-static const uint8_t BRICK_H = (uint8_t)(BRICK_BOTTOM + 1); // 17 rows total for bricks space
+static const uint8_t BRICK_BOTTOM = PLAY_H - 2;  // 18
+static const uint8_t BRICK_H = (uint8_t)(BRICK_BOTTOM + 1); // 19 rows total for bricks space
 
 static const uint8_t INITIAL_FILLED_ROWS = 8;    // play rows 0..7 filled at start
 
@@ -137,6 +156,14 @@ uint32_t tBrickDrop = 0;
 uint16_t bricksHit = 0;
 
 uint8_t wheelPos = 0;
+
+// Joystick move repeat (same style as your Tetris)
+static const uint16_t MOVE_REPEAT_START_MS = 160;
+static const uint16_t MOVE_REPEAT_MS = 65;
+static uint32_t tMoveL = 0;
+static uint32_t tMoveR = 0;
+static bool moveLRepeating = false;
+static bool moveRRepeating = false;
 
 // ---------- Digits ----------
 static void updateScoreDigits(uint32_t s) {
@@ -174,7 +201,6 @@ static void generateBrickRowAt(uint8_t row, uint32_t c) {
 }
 
 static void fillInitialBricks() {
-  // Fill only rows 0..7; rows 8..16 remain empty.
   clearBricks();
   for (uint8_t y = 0; y < INITIAL_FILLED_ROWS; ++y) {
     uint32_t c = wheelColor(wheelPos);
@@ -227,6 +253,20 @@ static bool hitBrickAt(int8_t x, int8_t y) {
 }
 
 // ---------- Ball / Paddle helpers ----------
+static void clampPaddle() {
+  if (paddleX < 0) paddleX = 0;
+  if (paddleX > (int8_t)(W - PADDLE_W)) paddleX = (int8_t)(W - PADDLE_W);
+}
+
+static void movePaddle(int8_t dx) {
+  paddleX += dx;
+  clampPaddle();
+  if (ballStuck) {
+    ballX = (int8_t)(paddleX + (PADDLE_W / 2));
+    ballY = (int8_t)(PADDLE_Y - 1);
+  }
+}
+
 static void resetBallOnPaddle() {
   ballStuck = true;
   ballVX = (random(0, 2) == 0) ? -1 : 1;
@@ -235,6 +275,12 @@ static void resetBallOnPaddle() {
   ballX = (int8_t)(paddleX + (PADDLE_W / 2));
   ballY = (int8_t)(PADDLE_Y - 1);
 
+  tBall = millis();
+}
+
+static void serveBall() {
+  if (!ballStuck) return;
+  ballStuck = false;
   tBall = millis();
 }
 
@@ -254,26 +300,10 @@ static void resetGame() {
   resetBallOnPaddle();
 
   tBrickDrop = millis();
-}
 
-static void clampPaddle() {
-  if (paddleX < 0) paddleX = 0;
-  if (paddleX > (int8_t)(W - PADDLE_W)) paddleX = (int8_t)(W - PADDLE_W);
-}
-
-static void movePaddle(int8_t dx) {
-  paddleX += dx;
-  clampPaddle();
-  if (ballStuck) {
-    ballX = (int8_t)(paddleX + (PADDLE_W / 2));
-    ballY = (int8_t)(PADDLE_Y - 1);
-  }
-}
-
-static void serveBall() {
-  if (!ballStuck) return;
-  ballStuck = false;
-  tBall = millis();
+  // reset repeat state
+  tMoveL = tMoveR = millis();
+  moveLRepeating = moveRRepeating = false;
 }
 
 static void stepBallOnce() {
@@ -338,25 +368,10 @@ static void stepBallOnce() {
 
 // ---------- Rendering ----------
 static void drawBackground() {
-  for (uint8_t p = 0; p < PREVIEW_ROWS; ++p) {
-    uint16_t pixelRow = previewRowToPixelRow(p);
-    for (uint8_t col = 0; col < W; ++col) {
-      pixelGrid->setGridCellColour(pixelRow, col, PREVIEW_BG_COLOR_U32);
-    }
-  }
-
   for (uint8_t pr = 0; pr < PLAY_H; ++pr) {
     uint16_t pixelRow = playRowToPixelRow(pr);
     for (uint8_t col = 0; col < W; ++col) {
       pixelGrid->setGridCellColour(pixelRow, col, PLAY_BG_COLOR_U32);
-    }
-  }
-}
-
-static void drawPreviewIndicator() {
-  if (ballStuck && !gameOver) {
-    for (uint8_t x = W - 3; x < W; ++x) {
-      pixelGrid->setGridCellColour(previewRowToPixelRow(1), x, dimColor(BALL_COLOR_U32, 35));
     }
   }
 }
@@ -398,10 +413,6 @@ static void finalizeDigitsAndShow() {
 static void renderFrame() {
   if (gameOver) {
     uint32_t c = strip.Color(30, 0, 0);
-    for (uint8_t p = 0; p < PREVIEW_ROWS; ++p) {
-      uint16_t r = previewRowToPixelRow(p);
-      for (uint8_t x = 0; x < W; ++x) pixelGrid->setGridCellColour(r, x, c);
-    }
     for (uint8_t pr = 0; pr < PLAY_H; ++pr) {
       uint16_t r = playRowToPixelRow(pr);
       for (uint8_t x = 0; x < W; ++x) pixelGrid->setGridCellColour(r, x, c);
@@ -411,11 +422,51 @@ static void renderFrame() {
   }
 
   drawBackground();
-  drawPreviewIndicator();
   drawBricks();
   drawPaddle();
   drawBall();
   finalizeDigitsAndShow();
+}
+
+// ---------- Joystick movement repeat (left/right only) ----------
+static void handleJoystickMoveRepeat() {
+  uint32_t now = millis();
+
+  // LEFT
+  if (joyL.stable) {
+    if (joyL.pressedEdge()) {
+      movePaddle(-1);
+      tMoveL = now;
+      moveLRepeating = false;
+    } else {
+      uint16_t waitMs = moveLRepeating ? MOVE_REPEAT_MS : MOVE_REPEAT_START_MS;
+      if (now - tMoveL >= waitMs) {
+        movePaddle(-1);
+        tMoveL = now;
+        moveLRepeating = true;
+      }
+    }
+  } else if (joyL.releasedEdge()) {
+    moveLRepeating = false;
+  }
+
+  // RIGHT
+  if (joyR.stable) {
+    if (joyR.pressedEdge()) {
+      movePaddle(1);
+      tMoveR = now;
+      moveRRepeating = false;
+    } else {
+      uint16_t waitMs = moveRRepeating ? MOVE_REPEAT_MS : MOVE_REPEAT_START_MS;
+      if (now - tMoveR >= waitMs) {
+        movePaddle(1);
+        tMoveR = now;
+        moveRRepeating = true;
+      }
+    }
+  } else if (joyR.releasedEdge()) {
+    moveRRepeating = false;
+  }
 }
 
 // ---------- Arduino ----------
@@ -426,18 +477,24 @@ void setup() {
   strip.begin();
   strip.show();
 
-  PREVIEW_BG_COLOR_U32 = strip.Color(60, 60, 90);
   PLAY_BG_COLOR_U32    = strip.Color(6, 6, 12);
-
-  PADDLE_COLOR_U32 = strip.Color(220, 220, 220);
-  BALL_COLOR_U32   = strip.Color(255, 255, 255);
+  PADDLE_COLOR_U32     = strip.Color(220, 220, 220);
+  BALL_COLOR_U32       = strip.Color(255, 255, 255);
 
   pixelGrid = new Pixel_Grid(&strip, 0, MATRIX_ROWS, W);
   lcdPanel  = new LCD_Panel(&strip, 214, 6, strip.Color(255, 255, 255));
 
-  btnL.begin(PIN_LEFT);
-  btnR.begin(PIN_RIGHT);
-  btnAct.begin(PIN_ROT);
+  // Buttons: serve/restart
+  btn1.begin(PIN_BTN1);
+  btn2.begin(PIN_BTN2);
+  btn3.begin(PIN_BTN3);
+  btn4.begin(PIN_BTN4);
+
+  // Joystick: movement only
+  joyU_unused.begin(PIN_JOY_UP);
+  joyL.begin(PIN_JOY_LEFT);
+  joyR.begin(PIN_JOY_RIGHT);
+  joyD_unused.begin(PIN_JOY_DOWN);
 
   updateScoreDigits(0);
   lcdPanel->render();
@@ -455,16 +512,20 @@ void loop() {
   if (now - tFrame < FRAME_MS) return;
   tFrame = now;
 
-  btnL.update();
-  btnR.update();
-  btnAct.update();
+  // Update inputs
+  btn1.update(); btn2.update(); btn3.update(); btn4.update();
+  joyL.update(); joyR.update();
+  joyU_unused.update(); joyD_unused.update();
+
+  // Any button serves or restarts
+  bool servePressed =
+    btn1.pressedEdge() || btn2.pressedEdge() || btn3.pressedEdge() || btn4.pressedEdge();
 
   if (gameOver) {
-    if (btnAct.pressedEdge()) resetGame();
+    if (servePressed) resetGame();
     renderFrame();
-    btnL.latch();
-    btnR.latch();
-    btnAct.latch();
+    btn1.latch(); btn2.latch(); btn3.latch(); btn4.latch();
+    joyL.latch(); joyR.latch(); joyU_unused.latch(); joyD_unused.latch();
     return;
   }
 
@@ -474,22 +535,17 @@ void loop() {
     brickDropTick();
     if (gameOver) {
       renderFrame();
-      btnL.latch();
-      btnR.latch();
-      btnAct.latch();
+      btn1.latch(); btn2.latch(); btn3.latch(); btn4.latch();
+      joyL.latch(); joyR.latch(); joyU_unused.latch(); joyD_unused.latch();
       return;
     }
   }
 
-  // Paddle movement with basic repeat
-  static uint8_t repeatCounter = 0;
-  repeatCounter++;
+  // Joystick movement (left/right only)
+  handleJoystickMoveRepeat();
 
-  if (btnL.pressedEdge() || (btnL.stable && (repeatCounter % 3 == 0))) movePaddle(-1);
-  if (btnR.pressedEdge() || (btnR.stable && (repeatCounter % 3 == 0))) movePaddle(1);
-
-  // Serve ball
-  if (btnAct.pressedEdge()) serveBall();
+  // Serve ball on any button press
+  if (servePressed) serveBall();
 
   // Ball update
   if (!ballStuck) {
@@ -504,7 +560,7 @@ void loop() {
 
   renderFrame();
 
-  btnL.latch();
-  btnR.latch();
-  btnAct.latch();
+  // Latch
+  btn1.latch(); btn2.latch(); btn3.latch(); btn4.latch();
+  joyL.latch(); joyR.latch(); joyU_unused.latch(); joyD_unused.latch();
 }
