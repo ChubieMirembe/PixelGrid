@@ -1,5 +1,6 @@
 # PixelGrid
 
+
 PixelGrid is an Arduino-based LED matrix game collection built for a custom PixelGrid board. This repo includes playable games, a shared core library, and setup guides to get a first-time user from wiring to uploading sketches.
 
 ## What’s in this repo
