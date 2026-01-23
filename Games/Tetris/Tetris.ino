@@ -22,6 +22,7 @@ void updateScoreDigits(uint32_t s) {
   lcdPanel->changeCharArray(out);
 }
 
+
 void setup() {
   randomSeed(analogRead(A0));
   Serial.begin(115200);
