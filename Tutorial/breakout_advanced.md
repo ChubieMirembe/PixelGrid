@@ -14,11 +14,11 @@ Build Breakout by splitting responsibilities into 5 parts:
 
 1. Create a sketch folder and add:
 
-   * `Breakout.ino`
-   * `Pins.h`
-   * `Input.h/.cpp`
-   * `Game.h/.cpp`
-   * `Render.h/.cpp`
+    * `Pins.h` constants
+    * `Input.*` for debounced inputs and joystick repeat
+    * `Game.*` for state updates and rules
+    * `Render.*` for drawing
+    * `.ino` for setup/loop glue
 
 2. In `Pins.h`:
 

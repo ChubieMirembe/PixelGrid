@@ -7,11 +7,11 @@ In the Games folder:
 * Create a new folder called `Breakout`.
 * In the same folder, add the files:
 
-    * `Pins.h` constants
-    * `Input.*` for debounced inputs and joystick repeat
-    * `Game.*` for state updates and rules
-    * `Render.*` for drawing
-    * `.ino` for setup/loop glue
+    * `Breakout.ino` (main loop)
+    * `Pins.h` (all pins, sizes, constants)
+    * `Input.h/.cpp` (debounce + joystick repeat + “serve pressed”)
+    * `Game.h/.cpp` (all state + physics + brick logic)
+    * `Render.h/.cpp` (all drawing + score digits)
 
 ---
 
