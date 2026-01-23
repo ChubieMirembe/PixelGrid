@@ -1,3 +1,6 @@
+#pragma once
+
+
 class Button {
   private: 
   uint16_t mPin;

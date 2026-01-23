@@ -1,3 +1,5 @@
+#pragma once
+ 
  class LCD_Digit {
   private:
   uint32_t mOnColour;
