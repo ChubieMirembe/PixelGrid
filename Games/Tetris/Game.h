@@ -1,6 +1,6 @@
 #pragma once
 #include <Arduino.h>
-#include <avr/pgmspace.h>
+#include <pgmspace.h>
 #include "Pins.h"
 #include "Input.h"
 #include "Render.h"

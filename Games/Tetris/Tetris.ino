@@ -125,3 +125,52 @@ void loop() {
 
   input.latch();
 }
+
+// -----------------------------
+// Setup
+// -----------------------------
+void setup()
+{
+  randomSeed(analogRead(A0));
+  Serial.begin(115200);
+  Serial.setTimeout(10);
+
+  strip.begin();
+  strip.show();
+
+  pixelGrid = new Pixel_Grid(&strip, 0, MATRIX_ROWS, W);
+  lcdPanel  = new LCD_Panel(&strip, 214, 6, strip.Color(255, 255, 255));
+
+  resetHostParser();
+  initStandaloneMode();
+}
+
+// -----------------------------
+// Main loop
+// -----------------------------
+void loop()
+{
+  bool gotHostFrame = tryReadHostFrame();
+
+  if (gotHostFrame)
+  {
+    return;
+  }
+
+  if (runtimeMode == MODE_HOST)
+  {
+    if (millis() - lastHostFrameMs > HOST_TIMEOUT_MS)
+    {
+      runtimeMode = MODE_STANDALONE;
+      resetHostParser();
+      initStandaloneMode();
+    }
+    else
+    {
+      delay(1);
+      return;
+    }
+  }
+
+  runStandaloneLoop();
+}
