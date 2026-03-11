@@ -7,7 +7,7 @@
 #include "Render.h"
 #include "Game.h"
 
-#include "NetSubmit.h" // <-- add this
+#include "NetSubmit.h" // WiFi + score submit
 
 // Hardware objects
 Adafruit_NeoPixel strip(PIXEL_BUFFER_SIZE, PIN_LED, NEO_GRB + NEO_KHZ800);
@@ -19,20 +19,20 @@ Input input;
 TetrisGame game;
 
 enum AppState {
-  STATE_TITLE,          // title scroll running, waits for button press to start game
-  STATE_PLAYING,        // normal game
-  STATE_GAMEOVER_HOLD   // solid red, waits for button press to go back to title
+  STATE_TITLE,
+  STATE_PLAYING,
+  STATE_GAMEOVER_HOLD
 };
 
 AppState state = STATE_TITLE;
 
 // Title scroll control (right-to-left)
 static const uint16_t TITLE_STEP_MS = 120;
-static const int16_t  TITLE_TEXT_WIDTH = 6 * 6; // 6 letters, (5px + 1 gap) => 36px
-int16_t titleX = W; // start off-screen to the right
+static const int16_t  TITLE_TEXT_WIDTH = 6 * 6; // 36px
+int16_t titleX = W;
 uint32_t tTitle = 0;
 
-// NEW: ensure we submit once per standalone game
+// submit latch: ensure we submit once per game over
 static bool submittedThisGame = false;
 
 static inline bool anyStartButtonPressed(const InputState& s) {
@@ -48,7 +48,7 @@ static void enterTitle() {
 
 static void enterPlaying() {
   state = STATE_PLAYING;
-  submittedThisGame = false;     // NEW: reset submit latch for next run
+  submittedThisGame = false;
   game.reset(renderer);
   input.resetRepeatTimers(millis());
 }
@@ -57,16 +57,8 @@ static void enterGameOverHold() {
   state = STATE_GAMEOVER_HOLD;
 }
 
-// ------------------------------------------------------------
-// Standalone mode hooks (called by your host/standalone runtime)
-// ------------------------------------------------------------
 void initStandaloneMode() {
-  // If host code already initialized hardware earlier, this is still safe on ESP32.
   randomSeed(analogRead(A0));
-
-  // Don't re-Serial.begin() if your host runtime already did; but safe if called once.
-  // If this can be called multiple times, it's still generally ok.
-  Serial.begin(115200);
 
   strip.begin();
   strip.show();
@@ -110,25 +102,22 @@ void runStandaloneLoop() {
     game.update(in, dx, now, renderer);
 
     if (game.isGameOver()) {
-    enterGameOverHold();
+      enterGameOverHold();
 
-    // Only in standalone; never in host mode
-    if (runtimeMode == MODE_STANDALONE && !submittedThisGame) {
-      submittedThisGame = true;
+      if (!submittedThisGame) {
+        submittedThisGame = true;
 
-      String code;
-      if (submitScoreToServer(game.score, code)) {
-        // Display the one-time code the user will type on the website
-        renderer.setDigitsText(code.c_str());
-      } else {
-        // Display a simple error indicator
-        renderer.setDigitsText("NoNet");
+        String code;
+        if (submitScoreToServer(game.score, code)) {
+          renderer.setDigitsText(code.c_str()); // show 6-digit code
+        } else {
+          renderer.setDigitsText("NoNet");
+        }
       }
-    }
 
-    input.latch();
-    return;
-  }
+      input.latch();
+      return;
+    }
 
     game.render(renderer);
   }
@@ -171,25 +160,51 @@ void loop()
 {
   bool gotHostFrame = tryReadHostFrame();
 
-  if (gotHostFrame)
-  {
-    return; // host is active; NO standalone code runs here
-  }
-
-  if (runtimeMode == MODE_HOST)
-  {
-    if (millis() - lastHostFrameMs > HOST_TIMEOUT_MS)
-    {
+  if (runtimeMode == MODE_HOST) {
+    if (millis() - lastHostFrameMs > HOST_TIMEOUT_MS) {
       runtimeMode = MODE_STANDALONE;
       resetHostParser();
       initStandaloneMode();
-    }
-    else
-    {
-      delay(1);
       return;
+    }
+
+    if (gotHostFrame || hostHasFrame) {
+      renderHostFrame();
+    } else {
+      renderer.setDigitsText("HOST  ");
+      renderer.show();
+    }
+    return;
+  }
+
+  runStandaloneLoop();
+}
+static void renderHostFrame() {
+  if (!hostHasFrame) return;
+
+  int idx = 0;
+
+  for (uint8_t x = 0; x < W; ++x) {
+    bool reverseCol = (x % 2 == 1);
+
+    for (uint8_t i = 0; i < MATRIX_ROWS; ++i) {
+      uint8_t row = reverseCol ? (uint8_t)(MATRIX_ROWS - 1 - i) : i;
+
+      // hostGrb is GRB
+      uint8_t g = hostGrb[idx + 0];
+      uint8_t r = hostGrb[idx + 1];
+      uint8_t b = hostGrb[idx + 2];
+
+      // Convert to NeoPixel packed color
+      uint32_t c = strip.Color(r, g, b);
+
+      uint16_t pixelRow = (uint16_t)(MATRIX_ROWS - 1 - row);
+      pixelGrid->setGridCellColour(pixelRow, x, c);
+
+      idx += 3;
+      if (idx + 2 >= (int)sizeof(hostGrb)) break;
     }
   }
 
-  runStandaloneLoop(); // only reaches here when standalone
+  renderer.show();
 }

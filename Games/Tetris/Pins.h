@@ -2,8 +2,8 @@
 #include <Arduino.h>
 
 // ===== Hardware =====
-#define PIXEL_BUFFER_SIZE 300
-#define PIN_LED 2
+#define PIXEL_BUFFER_SIZE 256
+#define PIN_LED 5
 
 // Buttons (rotate left/right in your Tetris)
 #define PIN_BTN1 3
@@ -12,7 +12,7 @@
 #define PIN_BTN4 10
 
 // Joystick directions (digital)
-#define PIN_JOY_UP    5   // hold
+#define PIN_JOY_UP    11   // hold
 #define PIN_JOY_LEFT  6   // move left (repeat)
 #define PIN_JOY_RIGHT 7   // move right (repeat)
 #define PIN_JOY_DOWN  8   // soft drop while held
