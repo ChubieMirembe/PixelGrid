@@ -1,11 +1,13 @@
 #include <Arduino.h>
 #include <Adafruit_NeoPixel.h>
 #include <PixelGridCore.h>
-
+#include "HostRuntime.h"
 #include "Pins.h"
 #include "Input.h"
 #include "Render.h"
 #include "Game.h"
+
+#include "NetSubmit.h" // <-- add this
 
 // Hardware objects
 Adafruit_NeoPixel strip(PIXEL_BUFFER_SIZE, PIN_LED, NEO_GRB + NEO_KHZ800);
@@ -30,69 +32,73 @@ static const int16_t  TITLE_TEXT_WIDTH = 6 * 6; // 6 letters, (5px + 1 gap) => 3
 int16_t titleX = W; // start off-screen to the right
 uint32_t tTitle = 0;
 
+// NEW: ensure we submit once per standalone game
+static bool submittedThisGame = false;
+
 static inline bool anyStartButtonPressed(const InputState& s) {
-  // “start” is any of the 4 buttons (pins 3/4/9/10)
   return s.anyButtonPressed;
 }
 
-void enterTitle() {
+static void enterTitle() {
   state = STATE_TITLE;
-  titleX = W;             // restart scroll
+  titleX = W;
   tTitle = millis();
   input.resetRepeatTimers(millis());
 }
 
-void enterPlaying() {
+static void enterPlaying() {
   state = STATE_PLAYING;
+  submittedThisGame = false;     // NEW: reset submit latch for next run
   game.reset(renderer);
   input.resetRepeatTimers(millis());
 }
 
-void enterGameOverHold() {
+static void enterGameOverHold() {
   state = STATE_GAMEOVER_HOLD;
 }
 
-void setup() {
+// ------------------------------------------------------------
+// Standalone mode hooks (called by your host/standalone runtime)
+// ------------------------------------------------------------
+void initStandaloneMode() {
+  // If host code already initialized hardware earlier, this is still safe on ESP32.
   randomSeed(analogRead(A0));
+
+  // Don't re-Serial.begin() if your host runtime already did; but safe if called once.
+  // If this can be called multiple times, it's still generally ok.
   Serial.begin(115200);
 
   strip.begin();
   strip.show();
 
-  pixelGrid = new Pixel_Grid(&strip, 0, MATRIX_ROWS, W);
-  lcdPanel  = new LCD_Panel(&strip, 214, 6, strip.Color(255, 255, 255));
+  if (!pixelGrid) pixelGrid = new Pixel_Grid(&strip, 0, MATRIX_ROWS, W);
+  if (!lcdPanel)  lcdPanel  = new LCD_Panel(&strip, 214, 6, strip.Color(255, 255, 255));
 
   renderer.begin(&strip, pixelGrid, lcdPanel);
-
   input.begin();
 
-  // init game colours once we have renderer/strip
   game.initColours(renderer);
-
   renderer.setScoreDigits(0);
 
-  // POWER ON behaviour: go straight into title scroll
+  submittedThisGame = false;
   enterTitle();
 }
 
-void loop() {
+void runStandaloneLoop() {
   uint32_t now = millis();
 
-  // update input
   input.update();
   InputState in = input.sampleEdgesOnly();
 
   if (state == STATE_TITLE) {
-    // scroll text right-to-left
     if (now - tTitle >= TITLE_STEP_MS) {
       tTitle = now;
       titleX -= 1;
-      if (titleX < -TITLE_TEXT_WIDTH) titleX = W; // loop
+      if (titleX < -TITLE_TEXT_WIDTH) titleX = W;
     }
 
     renderer.drawTitleScroll_TETRIS(titleX);
 
-    // start game on button press
     if (anyStartButtonPressed(in)) {
       enterPlaying();
       input.latch();
@@ -104,19 +110,32 @@ void loop() {
     game.update(in, dx, now, renderer);
 
     if (game.isGameOver()) {
-      enterGameOverHold();
-      input.latch();
-      return;
+    enterGameOverHold();
+
+    // Only in standalone; never in host mode
+    if (runtimeMode == MODE_STANDALONE && !submittedThisGame) {
+      submittedThisGame = true;
+
+      String code;
+      if (submitScoreToServer(game.score, code)) {
+        // Display the one-time code the user will type on the website
+        renderer.setDigitsText(code.c_str());
+      } else {
+        // Display a simple error indicator
+        renderer.setDigitsText("NoNet");
+      }
     }
+
+    input.latch();
+    return;
+  }
 
     game.render(renderer);
   }
   else if (state == STATE_GAMEOVER_HOLD) {
     renderer.drawGameOverHold();
 
-    // stay red until button press
     if (anyStartButtonPressed(in)) {
-      // first press after game over returns to title (and restarts scroll)
       enterTitle();
       input.latch();
       return;
@@ -127,7 +146,7 @@ void loop() {
 }
 
 // -----------------------------
-// Setup
+// Host/standalone runtime setup
 // -----------------------------
 void setup()
 {
@@ -146,7 +165,7 @@ void setup()
 }
 
 // -----------------------------
-// Main loop
+// Host/standalone runtime loop
 // -----------------------------
 void loop()
 {
@@ -154,7 +173,7 @@ void loop()
 
   if (gotHostFrame)
   {
-    return;
+    return; // host is active; NO standalone code runs here
   }
 
   if (runtimeMode == MODE_HOST)
@@ -172,5 +191,5 @@ void loop()
     }
   }
 
-  runStandaloneLoop();
+  runStandaloneLoop(); // only reaches here when standalone
 }

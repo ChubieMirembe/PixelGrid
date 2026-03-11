@@ -42,7 +42,24 @@ struct Renderer {
     for (uint8_t i = 0; i < 6; ++i) out[i] = tmp[i];
     lcdPanel->changeCharArray(out);
   }
+  void setDigitsText(const char* s) {
+    // exactly 6 chars on the LCD panel
+    char out[6] = {' ', ' ', ' ', ' ', ' ', ' '};
 
+    if (s) {
+      size_t n = strlen(s);
+
+      // If longer than 6, take last 6 chars; if shorter, right-align
+      if (n >= 6) {
+        for (int i = 0; i < 6; ++i) out[i] = s[n - 6 + i];
+      } else {
+        int start = 6 - (int)n;
+        for (size_t i = 0; i < n; ++i) out[start + (int)i] = s[i];
+      }
+    }
+
+    lcdPanel->changeCharArray(out);
+  }
   void clearAllToBackground() {
     // preview rows
     for (uint8_t p = 0; p < PREVIEW_ROWS; ++p) {
