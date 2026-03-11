@@ -35,6 +35,84 @@ uint32_t tTitle = 0;
 // submit latch: ensure we submit once per game over
 static bool submittedThisGame = false;
 
+static uint8_t lastHostPayload = 0;
+static unsigned long lastHostSendMs = 0;
+static const unsigned long HOST_SEND_MIN_MS = 15; // throttle to avoid flooding
+static uint8_t buildHostPayload(const Input &inp) {
+  uint8_t p = 0;
+  p |= (inp.btn1.stable ? (1u << 0) : 0);
+  p |= (inp.btn2.stable ? (1u << 1) : 0);
+  p |= (inp.btn3.stable ? (1u << 2) : 0);
+  p |= (inp.joyU.stable ? (1u << 3) : 0);
+  p |= (inp.joyD.stable ? (1u << 4) : 0);
+  p |= (inp.joyL.stable ? (1u << 5) : 0);
+  p |= (inp.joyR.stable ? (1u << 6) : 0);
+  p |= (inp.btn4.stable ? (1u << 7) : 0);
+  return p;
+}
+
+static bool readBytesWithTimeout(uint8_t* buf, size_t len, unsigned long timeoutMs = 50) {
+  unsigned long start = millis();
+  size_t got = 0;
+  while (got < len && (millis() - start) < timeoutMs) {
+    if (Serial.available()) {
+      int b = Serial.read();
+      if (b >= 0) buf[got++] = (uint8_t)b;
+    } else {
+      delay(1);
+    }
+  }
+  return (got == len);
+}
+
+// Handle a PBLC packet AFTER you've consumed the 'P','B','L','C' magic.
+// Packet format (PC side): 'P' 'B' 'L' 'C' + uint16_t length (little-endian) + payload bytes (UTF8)
+static void HandlePblcPacket() {
+  // read 2-byte length
+  uint8_t lenBytes[2];
+  if (!readBytesWithTimeout(lenBytes, 2, 50)) return;
+  uint16_t payloadLen = (uint16_t)lenBytes[0] | ((uint16_t)lenBytes[1] << 8);
+
+  // cap to safe buffer size
+  const size_t MAX_LCD = 32;
+  uint16_t toRead = payloadLen;
+  if (toRead > MAX_LCD) toRead = MAX_LCD;
+
+  char buf[MAX_LCD + 1];
+  size_t idx = 0;
+  unsigned long start = millis();
+  while (idx < toRead && (millis() - start) < 250) {
+    if (Serial.available()) {
+      int c = Serial.read();
+      if (c >= 0) buf[idx++] = (char)c;
+    } else {
+      delay(1);
+    }
+  }
+  buf[idx] = '\0';
+
+  // If payloadLen > toRead flush remaining bytes so parser stays in sync
+  if (payloadLen > toRead) {
+    uint16_t skip = payloadLen - toRead;
+    unsigned long flushStart = millis();
+    while (skip-- > 0 && (millis() - flushStart) < 200) {
+      if (Serial.available()) Serial.read(); else delay(1);
+    }
+  }
+
+  // Update your renderer / LCD. Use the same API you use elsewhere:
+  renderer.setDigitsText(buf);
+}
+static void sendHostInputIfChanged(const Input &inp) {
+  uint8_t payload = buildHostPayload(inp);
+  unsigned long now = millis();
+  if (payload != lastHostPayload && (now - lastHostSendMs) >= HOST_SEND_MIN_MS) {
+    Serial.write('b');       // marker expected by PC
+    Serial.write(payload);   // single payload byte
+    lastHostPayload = payload;
+    lastHostSendMs = now;
+  }
+}
 static inline bool anyStartButtonPressed(const InputState& s) {
   return s.anyButtonPressed;
 }
@@ -161,12 +239,15 @@ void loop()
   bool gotHostFrame = tryReadHostFrame();
 
   if (runtimeMode == MODE_HOST) {
-    if (millis() - lastHostFrameMs > HOST_TIMEOUT_MS) {
-      runtimeMode = MODE_STANDALONE;
-      resetHostParser();
-      initStandaloneMode();
-      return;
-    }
+      input.update();
+      sendHostInputIfChanged(input);
+      input.latch();
+      if (millis() - lastHostFrameMs > HOST_TIMEOUT_MS) {
+        resetHostParser();
+        initStandaloneMode();
+
+        return;
+      }
 
     if (gotHostFrame || hostHasFrame) {
       renderHostFrame();

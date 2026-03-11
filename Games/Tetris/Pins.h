@@ -8,14 +8,14 @@
 // Buttons (rotate left/right in your Tetris)
 #define PIN_BTN1 3
 #define PIN_BTN2 4
-#define PIN_BTN3 9
-#define PIN_BTN4 10
+#define PIN_BTN3 10
+#define PIN_BTN4 12
 
 // Joystick directions (digital)
-#define PIN_JOY_UP    11   // hold
-#define PIN_JOY_LEFT  6   // move left (repeat)
-#define PIN_JOY_RIGHT 7   // move right (repeat)
-#define PIN_JOY_DOWN  8   // soft drop while held
+#define PIN_JOY_UP    6   // hold
+#define PIN_JOY_LEFT  7   // move left (repeat)
+#define PIN_JOY_RIGHT 8   // move right (repeat)
+#define PIN_JOY_DOWN  9   // soft drop while held
 
 // ===== Grid =====
 static const uint8_t PREVIEW_ROWS = 2;
