@@ -108,35 +108,59 @@ static inline uint8_t SEG_BY_ID(uint8_t segId) {
   if (segId < 1 || segId > 7) return 0;
   return (uint8_t)(1u << (segId - 1));
 }
-
+/*
+    2
+1      3
+    7
+6      4
+    5
+*/
 // Piece types in your game:
 // 0 I(line), 1 O(square), 2 T, 3 S, 4 Z, 5 J, 6 L
 static inline uint8_t pieceToMask(uint8_t type) {
   switch (type) {
-    case 6: // L = 1,6,5
-      return SEG_BY_ID(1) | SEG_BY_ID(6) | SEG_BY_ID(5);
-
-    case 2: // T = 1,7,6
-      return SEG_BY_ID(1) | SEG_BY_ID(7) | SEG_BY_ID(6);
-
     case 0: // Line = 1,6
       return SEG_BY_ID(1) | SEG_BY_ID(6);
 
     case 1: // Square = 6,7,4,5
       return SEG_BY_ID(6) | SEG_BY_ID(7) | SEG_BY_ID(4) | SEG_BY_ID(5);
 
-    case 4: // Z = 2,3,7,6,4
-      return SEG_BY_ID(2) | SEG_BY_ID(3) | SEG_BY_ID(7) | SEG_BY_ID(6) | SEG_BY_ID(5);
+    case 2: // T = 1,7,6
+      return SEG_BY_ID(1) | SEG_BY_ID(7) | SEG_BY_ID(6);
 
-    case 3: // S = 2,1,7,4,6
-      return SEG_BY_ID(2) | SEG_BY_ID(1) | SEG_BY_ID(7) | SEG_BY_ID(4) | SEG_BY_ID(5);
+    case 3: // S = 1,7,4,
+      return SEG_BY_ID(1) | SEG_BY_ID(7) | SEG_BY_ID(4);
+
+    case 4: // Z = 3,7,6
+      return SEG_BY_ID(3) | SEG_BY_ID(7) | SEG_BY_ID(6);
 
     case 5: // J = 3,4,5
       return SEG_BY_ID(3) | SEG_BY_ID(4) | SEG_BY_ID(5);
-
+    
+    case 6: // L = 1,6,5
+        return SEG_BY_ID(1) | SEG_BY_ID(6) | SEG_BY_ID(5);
     default:
       return 0;
   }
+}
+static inline uint32_t scoreColorSmoothByScore(Adafruit_NeoPixel& strip, uint32_t score) {
+  const uint32_t HUE_CYCLE_K = 6; // rainbow every 6000 points (tune)
+
+  uint32_t k = score / 1000;
+  uint16_t frac = (uint16_t)((score % 1000) * 65535UL / 1000UL); // 0..65535
+
+  uint16_t hue0 = (uint16_t)((k * 65535UL) / HUE_CYCLE_K);
+  uint16_t hue1 = (uint16_t)(((k + 1) * 65535UL) / HUE_CYCLE_K);
+
+  int32_t dh = (int32_t)(int16_t)(hue1 - hue0); // signed 16-bit delta
+  // choose shortest path around the circle
+  if (dh > 32767) dh -= 65536;
+  if (dh < -32768) dh += 65536;
+
+  uint16_t hue = (uint16_t)(hue0 + (int32_t)((dh * (int32_t)frac) >> 16));
+
+  // Slightly higher V helps visibility; tune V=150..255
+  return strip.gamma32(strip.ColorHSV(hue, 255, 200));
 }
 
   void setHudHoldNextScore(int8_t holdType, uint8_t nextType, const uint32_t pieceColors[7], uint32_t score) {
@@ -175,8 +199,10 @@ static inline uint8_t pieceToMask(uint8_t type) {
     out[4] = (char)('0' + (last3 / 10) % 10);
     out[5] = (char)('0' + (last3 / 1) % 10);
 
+    uint32_t scoreColEffective = scoreColorSmoothByScore(*strip, score); // or ...FromThousands
+
     for (uint8_t i = 3; i < 6; ++i) {
-      lcdPanel->setDigitOnColour(i, scoreCol);
+      lcdPanel->setDigitOnColour(i, scoreColEffective);
       lcdPanel->setDigitOffColour(i, off);
     }
 
