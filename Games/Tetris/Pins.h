@@ -18,8 +18,8 @@
 #define PIN_JOY_DOWN  9   // soft drop while held
 
 // ===== Grid =====
-static const uint8_t PREVIEW_ROWS = 2;
-static const uint8_t PLAY_H = 18;
+static const uint8_t PREVIEW_ROWS = 0;
+static const uint8_t PLAY_H = 20;
 static const uint8_t W = 10;
 static const uint8_t MATRIX_ROWS = PREVIEW_ROWS + PLAY_H;
 
