@@ -70,7 +70,37 @@ struct Renderer {
   // digit 3-5: score (white)
   // --------------------------
 
+  void setHostHud3MasksAndScore(const uint8_t masks3[3],
+                              const uint32_t cols3[3],
+                              uint16_t scoreLast3)
+{
+  if (!lcdPanel || !strip) return;
 
+  const uint32_t off = strip->Color(0, 0, 0);
+  const uint32_t scoreCol = strip->Color(220, 220, 220);
+
+  // Digits 0-2: raw masks + per-digit colors
+  for (uint8_t i = 0; i < 3; ++i) {
+    lcdPanel->setDigitOnColour(i, cols3[i]);
+    lcdPanel->setDigitOffColour(i, off);
+    lcdPanel->setDigitSegments(i, masks3[i]);
+  }
+
+  // Digits 3-5: score (numeric)
+  uint16_t last3 = (uint16_t)(scoreLast3 % 1000);
+  char c3 = (char)('0' + (last3 / 100) % 10);
+  char c4 = (char)('0' + (last3 / 10) % 10);
+  char c5 = (char)('0' + (last3 / 1) % 10);
+
+  for (uint8_t i = 3; i < 6; ++i) {
+    lcdPanel->setDigitOnColour(i, scoreCol);
+    lcdPanel->setDigitOffColour(i, off);
+  }
+
+  lcdPanel->setDigitChar(3, c3);
+  lcdPanel->setDigitChar(4, c4);
+  lcdPanel->setDigitChar(5, c5);
+}
 
 
 static inline uint8_t SEG_BY_ID(uint8_t segId) {

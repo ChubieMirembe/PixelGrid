@@ -234,20 +234,51 @@ void setup()
 // -----------------------------
 // Host/standalone runtime loop
 // -----------------------------
+// void loop()
+// {
+//   bool gotHostFrame = tryReadHostFrame();
+
+//   if (runtimeMode == MODE_HOST) {
+//       input.update();
+//       sendHostInputIfChanged(input);
+//       input.latch();
+//       if (millis() - lastHostFrameMs > HOST_TIMEOUT_MS) {
+//         resetHostParser();
+//         initStandaloneMode();
+
+//         return;
+//       }
+
+//     if (gotHostFrame || hostHasFrame) {
+//       renderHostFrame();
+//     } else {
+//       renderer.setDigitsText("HOST  ");
+//       renderer.show();
+//     }
+//     return;
+//   }
+
+//   runStandaloneLoop();
+// }
 void loop()
 {
-  bool gotHostFrame = tryReadHostFrame();
+  bool gotHostFrame = false;
+  if (Serial.available() >= 4) { // 'P' + 3
+    gotHostFrame = tryReadHostFrame();
+  }
+  // If we were previously in host mode, enforce timeout even if parsing is currently failing.
+  if (runtimeMode == MODE_HOST) {
+    if (millis() - lastHostFrameMs > HOST_TIMEOUT_MS) {
+      resetHostParser();
+      initStandaloneMode();
+      return;
+    }
+  }
 
   if (runtimeMode == MODE_HOST) {
-      input.update();
-      sendHostInputIfChanged(input);
-      input.latch();
-      if (millis() - lastHostFrameMs > HOST_TIMEOUT_MS) {
-        resetHostParser();
-        initStandaloneMode();
-
-        return;
-      }
+    input.update();
+    sendHostInputIfChanged(input);
+    input.latch();
 
     if (gotHostFrame || hostHasFrame) {
       renderHostFrame();
