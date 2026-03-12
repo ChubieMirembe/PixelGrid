@@ -42,6 +42,7 @@ struct Renderer {
     for (uint8_t i = 0; i < 6; ++i) out[i] = tmp[i];
     lcdPanel->changeCharArray(out);
   }
+
   void setDigitsText(const char* s) {
     // exactly 6 chars on the LCD panel
     char out[6] = {' ', ' ', ' ', ' ', ' ', ' '};
@@ -60,6 +61,101 @@ struct Renderer {
 
     lcdPanel->changeCharArray(out);
   }
+
+  // --------------------------
+  // NEW: HUD (Hold / divider / Next + score last 3 digits)
+  // digit 0: hold icon (colored)
+  // digit 1: divider (dim)
+  // digit 2: next icon (colored)
+  // digit 3-5: score (white)
+  // --------------------------
+
+
+
+
+static inline uint8_t SEG_BY_ID(uint8_t segId) {
+  // segId 1..7 -> bit 0..6
+  if (segId < 1 || segId > 7) return 0;
+  return (uint8_t)(1u << (segId - 1));
+}
+
+// Piece types in your game:
+// 0 I(line), 1 O(square), 2 T, 3 S, 4 Z, 5 J, 6 L
+static inline uint8_t pieceToMask(uint8_t type) {
+  switch (type) {
+    case 6: // L = 1,6,5
+      return SEG_BY_ID(1) | SEG_BY_ID(6) | SEG_BY_ID(5);
+
+    case 2: // T = 1,7,6
+      return SEG_BY_ID(1) | SEG_BY_ID(7) | SEG_BY_ID(6);
+
+    case 0: // Line = 1,6
+      return SEG_BY_ID(1) | SEG_BY_ID(6);
+
+    case 1: // Square = 6,7,4,5
+      return SEG_BY_ID(6) | SEG_BY_ID(7) | SEG_BY_ID(4) | SEG_BY_ID(5);
+
+    case 4: // Z = 2,3,7,6,4
+      return SEG_BY_ID(2) | SEG_BY_ID(3) | SEG_BY_ID(7) | SEG_BY_ID(6) | SEG_BY_ID(5);
+
+    case 3: // S = 2,1,7,4,6
+      return SEG_BY_ID(2) | SEG_BY_ID(1) | SEG_BY_ID(7) | SEG_BY_ID(4) | SEG_BY_ID(5);
+
+    case 5: // J = 3,4,5
+      return SEG_BY_ID(3) | SEG_BY_ID(4) | SEG_BY_ID(5);
+
+    default:
+      return 0;
+  }
+}
+
+  void setHudHoldNextScore(int8_t holdType, uint8_t nextType, const uint32_t pieceColors[7], uint32_t score) {
+    if (!lcdPanel || !strip) return;
+
+    const uint32_t off = strip->Color(0, 0, 0);
+    const uint32_t dividerCol = strip->Color(60, 60, 60);
+    const uint32_t scoreCol = strip->Color(220, 220, 220);
+
+    // Digit 0: HOLD
+    if (holdType >= 0 && holdType < 7) {
+      lcdPanel->setDigitOnColour(0, pieceColors[holdType]);
+      lcdPanel->setDigitOffColour(0, off);
+      lcdPanel->setDigitSegments(0, pieceToMask((uint8_t)holdType));
+    } else {
+      // no hold yet: blank
+      lcdPanel->setDigitOnColour(0, off);
+      lcdPanel->setDigitOffColour(0, off);
+      lcdPanel->setDigitSegments(0, 0);
+    }
+
+    // Digit 1: divider (middle bar only)
+    lcdPanel->setDigitOnColour(1, dividerCol);
+    lcdPanel->setDigitOffColour(1, off);
+    lcdPanel->setDigitSegments(1, SEG_BY_ID(7));
+    
+    // Digit 2: NEXT
+    lcdPanel->setDigitOnColour(2, pieceColors[nextType]);
+    lcdPanel->setDigitOffColour(2, off);
+    lcdPanel->setDigitSegments(2, pieceToMask(nextType));
+
+    // Digits 3-5: score last 3 digits using chars
+    uint16_t last3 = (uint16_t)(score % 1000);
+    char out[6] = {' ', ' ', ' ', '0', '0', '0'};
+    out[3] = (char)('0' + (last3 / 100) % 10);
+    out[4] = (char)('0' + (last3 / 10) % 10);
+    out[5] = (char)('0' + (last3 / 1) % 10);
+
+    for (uint8_t i = 3; i < 6; ++i) {
+      lcdPanel->setDigitOnColour(i, scoreCol);
+      lcdPanel->setDigitOffColour(i, off);
+    }
+
+    // This writes all 6 chars, but first 3 are spaces so it won't fight our segment-masks
+    lcdPanel->setDigitChar(3, out[3]);
+    lcdPanel->setDigitChar(4, out[4]);
+    lcdPanel->setDigitChar(5, out[5]);
+  }
+
   void clearAllToBackground() {
     // preview rows
     for (uint8_t p = 0; p < PREVIEW_ROWS; ++p) {

@@ -290,7 +290,7 @@ struct TetrisGame {
     curY = 0;
 
     tFall = millis();
-    r.setScoreDigits(score);
+    r.setHudHoldNextScore(holdType, (uint8_t)nextPiece.type, PIECE_COLORS, score);
   }
 
   void update(const InputState& in, int8_t repeatDx, uint32_t now, Renderer& r) {
@@ -316,11 +316,10 @@ struct TetrisGame {
       // soft drop scoring
       if (movedDown && in.downHeld) {
         score += 1;
-        r.setScoreDigits(score);
       }
     }
 
-    r.setScoreDigits(score);
+    r.setHudHoldNextScore(holdType, (uint8_t)nextPiece.type, PIECE_COLORS, score);
   }
 
   void render(Renderer& r) {
