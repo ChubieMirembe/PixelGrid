@@ -143,6 +143,30 @@ static inline uint8_t pieceToMask(uint8_t type) {
       return 0;
   }
 }
+
+// Convert simple ASCII characters to 7-seg masks for the LCD panel.
+// Add more cases here as needed.
+static inline uint8_t charToMask(char ch) {
+  switch (ch) {
+    case 'P': // top, upper-left, upper-right, middle => segments 1,3,6,2,7
+      return SEG_BY_ID(1) | SEG_BY_ID(3) | SEG_BY_ID(6) | SEG_BY_ID(2) | SEG_BY_ID(7);
+    case 'C': // top, upper-left, lower-left, bottom => segments 1,6,5
+      return SEG_BY_ID(1) | SEG_BY_ID(2) | SEG_BY_ID(6) | SEG_BY_ID(5);
+    case 'I':
+      return SEG_BY_ID(3) | SEG_BY_ID(4);
+    case 'X':
+      return SEG_BY_ID(1) | SEG_BY_ID(3) | SEG_BY_ID(4) | SEG_BY_ID(6) | SEG_BY_ID(7);
+    case 'E':
+      return SEG_BY_ID(1) | SEG_BY_ID(2) | SEG_BY_ID(5) | SEG_BY_ID(6) | SEG_BY_ID(7);
+    case 'L':
+      return SEG_BY_ID(1) | SEG_BY_ID(5) | SEG_BY_ID(6);
+    default:
+      return 0;
+  }
+}
+static inline uint8_t drawCat(){
+  return SEG_BY_ID(1) | SEG_BY_ID(3) | SEG_BY_ID(4) | SEG_BY_ID(5) | SEG_BY_ID(6) | SEG_BY_ID(7);
+}
 static inline uint32_t scoreColorSmoothByScore(Adafruit_NeoPixel& strip, uint32_t score) {
   const uint32_t HUE_CYCLE_K = 6; // rainbow every 6000 points (tune)
 
@@ -254,6 +278,24 @@ static inline uint32_t scoreColorSmoothByScore(Adafruit_NeoPixel& strip, uint32_
     }
   }
 
+  int16_t computeTextPixelWidth(const char* s) {
+    const int glyphW = 5; // pixels per glyph
+    const int gap = 1;    // gap after each glyph
+    const int spaceGap = 1; // extra gap for 'words' (reduced to tighten spacing)
+
+    if (!s) return 0;
+    int16_t w = 0;
+    for (const char* p = s; *p; ++p) {
+      if (*p == ' ') { w += spaceGap; continue; }
+      // glyph
+      w += glyphW;
+      // gap after glyph
+      w += gap;
+    }
+    if (w > 0) w -= gap; // remove trailing gap
+    return w;
+  }
+
   void drawTitleScroll_TETRIS(int16_t baseX) {
     clearAllToBackground();
 
@@ -307,10 +349,42 @@ static inline uint32_t scoreColorSmoothByScore(Adafruit_NeoPixel& strip, uint32_
       0b11110
     };
 
-    // word: T E T R I S  (6 letters)
-    // each letter 5px + 1px gap => 6px advance
+    // Additional glyphs for "C A T S"
+    static const uint8_t C_[7] = {
+      0b01110,
+      0b10001,
+      0b10000,
+      0b10000,
+      0b10000,
+      0b10001,
+      0b01110
+    };
+    static const uint8_t A_[7] = {
+      0b01110,
+      0b10001,
+      0b10001,
+      0b11111,
+      0b10001,
+      0b10001,
+      0b10001
+    };
+    // reuse T_ for the T in CATS, and S_ for S
+
+    // word: C A T S  T E T R I S
+    // each letter 5px + 1px gap => 6px advance; use a small 1px word gap
     int16_t x = baseX;
 
+    // CATS in pink
+    uint32_t pink = strip ? strip->Color(255, 105, 180) : TEXT_COLOR;
+    drawChar5x7(x,      y0, C_, pink); x += 6;
+    drawChar5x7(x,      y0, A_, pink); x += 6;
+    drawChar5x7(x,      y0, T_, pink); x += 6;
+    drawChar5x7(x,      y0, S_, pink); x += 6;
+
+    // small gap between words
+    x += 1;
+
+    // TETRIS in TEXT_COLOR
     drawChar5x7(x,      y0, T_, TEXT_COLOR); x += 6;
     drawChar5x7(x,      y0, E_, TEXT_COLOR); x += 6;
     drawChar5x7(x,      y0, T_, TEXT_COLOR); x += 6;

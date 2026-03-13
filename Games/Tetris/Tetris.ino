@@ -28,7 +28,8 @@ AppState state = STATE_TITLE;
 
 // Title scroll control (right-to-left)
 static const uint16_t TITLE_STEP_MS = 120;
-static const int16_t  TITLE_TEXT_WIDTH = 6 * 6; // 36px
+// runtime width of title text in pixels (computed at init)
+static int16_t TITLE_TEXT_WIDTH = 0;
 int16_t titleX = W;
 uint32_t tTitle = 0;
 
@@ -150,6 +151,9 @@ void initStandaloneMode() {
   game.initColours(renderer);
   renderer.setScoreDigits(0);
 
+  // Compute runtime title width for accurate wrapping (CATS then TETRIS)
+  TITLE_TEXT_WIDTH = renderer.computeTextPixelWidth("CATS TETRIS");
+
   submittedThisGame = false;
   enterTitle();
 }
@@ -168,6 +172,34 @@ void runStandaloneLoop() {
     }
 
     renderer.drawTitleScroll_TETRIS(titleX);
+    if (renderer.lcdPanel && renderer.strip) {
+      uint32_t pink = renderer.strip->Color(255, 105, 180);
+      
+      const uint32_t off = renderer.strip->Color(0, 0, 0);
+
+      for (uint8_t d = 0; d < 5; ++d) {
+        renderer.lcdPanel->setDigitOnColour(d, pink);
+        renderer.lcdPanel->setDigitOffColour(d, off);
+      }
+
+      renderer.lcdPanel->setDigitOnColour(5, off);
+      renderer.lcdPanel->setDigitOffColour(5, off);
+      // Draw 'P' and 'C' using segment masks so letters are guaranteed
+      // Use shared helper to build masks for characters
+      uint8_t maskP = renderer.charToMask('P');
+      uint8_t maskI = renderer.charToMask('I');
+      uint8_t maskX = renderer.charToMask('X');
+      uint8_t maskE = renderer.charToMask('E');
+      uint8_t maskL = renderer.charToMask('L');
+      //uint8_t cat = renderer.drawCat();
+
+      renderer.lcdPanel->setDigitSegments(0, maskP);
+      renderer.lcdPanel->setDigitSegments(1, maskI);
+      renderer.lcdPanel->setDigitSegments(2, maskX);
+      renderer.lcdPanel->setDigitSegments(3, maskE);
+      renderer.lcdPanel->setDigitSegments(4, maskL);
+      //renderer.lcdPanel->setDigitSegments(5, cat);
+    }
 
     if (anyStartButtonPressed(in)) {
       enterPlaying();
@@ -187,9 +219,52 @@ void runStandaloneLoop() {
 
         String code;
         if (submitScoreToServer(game.score, code)) {
+          // ensure the 6-digit code is shown in white
+          if (renderer.lcdPanel && renderer.strip) {
+            uint32_t white = renderer.strip->Color(255, 255, 255);
+            const uint32_t off = renderer.strip->Color(0, 0, 0);
+            for (uint8_t d = 0; d < 6; ++d) {
+              renderer.lcdPanel->setDigitOnColour(d, white);
+              renderer.lcdPanel->setDigitOffColour(d, off);
+            }
+          }
           renderer.setDigitsText(code.c_str()); // show 6-digit code
         } else {
-          renderer.setDigitsText("NoNet");
+          // color digits: 'P','C' = pink, score = green
+          if (renderer.lcdPanel && renderer.strip) {
+            uint32_t pink = renderer.strip->Color(255, 105, 180);
+            uint32_t green = renderer.strip->Color(0, 220, 0);
+            const uint32_t off = renderer.strip->Color(0, 0, 0);
+
+            // Set colours per-digit
+            renderer.lcdPanel->setDigitOnColour(0, pink);
+            renderer.lcdPanel->setDigitOffColour(0, off);
+            renderer.lcdPanel->setDigitOnColour(1, pink);
+            renderer.lcdPanel->setDigitOffColour(1, off);
+            for (uint8_t d = 2; d < 6; ++d) {
+              renderer.lcdPanel->setDigitOnColour(d, green);
+              renderer.lcdPanel->setDigitOffColour(d, off);
+            }
+
+            // Draw 'P' and 'C' using segment masks so letters are guaranteed
+            // Use shared helper to build masks for characters
+            uint8_t maskP = renderer.charToMask('P');
+            uint8_t maskC = renderer.charToMask('C');
+
+            renderer.lcdPanel->setDigitSegments(0, maskP);
+            renderer.lcdPanel->setDigitSegments(1, maskC);
+
+            // Now set the 4 score digits explicitly
+            uint32_t sc = (uint32_t)(game.score % 10000UL);
+            uint8_t d3 = (uint8_t)((sc / 1000) % 10);
+            uint8_t d4 = (uint8_t)((sc / 100) % 10);
+            uint8_t d5 = (uint8_t)((sc / 10) % 10);
+            uint8_t d6 = (uint8_t)((sc / 1) % 10);
+            renderer.lcdPanel->setDigitChar(2, (char)('0' + d3));
+            renderer.lcdPanel->setDigitChar(3, (char)('0' + d4));
+            renderer.lcdPanel->setDigitChar(4, (char)('0' + d5));
+            renderer.lcdPanel->setDigitChar(5, (char)('0' + d6));
+          }
         }
       }
 

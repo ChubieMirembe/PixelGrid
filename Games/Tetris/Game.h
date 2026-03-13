@@ -11,6 +11,13 @@ static const uint8_t  LINES_PER_LEVEL = 10;
 static const uint16_t FALL_DECREMENT = 40;
 static const uint16_t MIN_FALL_MS = 80;
 
+// Per-line small speedup (ms reduced per line cleared)
+static const uint16_t PER_LINE_FALL_DECREMENT_MS = 10;
+
+// Score-based aggressive step: every SCORE_STEP_POINTS points reduce by SCORE_STEP_FALL_DECREMENT_MS
+static const uint32_t SCORE_STEP_POINTS = 1000;
+static const uint16_t SCORE_STEP_FALL_DECREMENT_MS = 20;
+
 static const uint16_t SOFT_DROP_MIN_MS = 55;
 static const uint16_t SOFT_DROP_DIVISOR = 4;
 
@@ -40,6 +47,8 @@ struct TetrisGame {
   uint32_t totalLinesCleared = 0;
   uint8_t level = 0;
   uint16_t fallDelayMs = BASE_FALL_MS;
+  // track score-based aggressive steps already applied
+  uint32_t lastScoreSpeedStep = 0;
 
   uint32_t tFall = 0;
 
@@ -156,8 +165,31 @@ struct TetrisGame {
 
   void applyLineClearScoreAndLevel(uint8_t cleared) {
     if (cleared == 0) return;
+
+    // Add score first
     score += classicLineClearScore(cleared, level);
+
+    // Update level-based baseline fall delay
     updateLevelOnCleared(cleared);
+
+    // Small immediate per-line speedup
+    if (cleared > 0) {
+      uint32_t perLineDec = (uint32_t)cleared * PER_LINE_FALL_DECREMENT_MS;
+      if (perLineDec > 0) {
+        fallDelayMs = (uint16_t)max((uint32_t)MIN_FALL_MS, (uint32_t)fallDelayMs - perLineDec);
+      }
+    }
+
+    // Score-based aggressive steps (apply once per SCORE_STEP_POINTS)
+    if (SCORE_STEP_POINTS > 0) {
+      uint32_t curStep = score / SCORE_STEP_POINTS;
+      if (curStep > lastScoreSpeedStep) {
+        uint32_t stepsToApply = curStep - lastScoreSpeedStep;
+        uint32_t totalDec = stepsToApply * (uint32_t)SCORE_STEP_FALL_DECREMENT_MS;
+        fallDelayMs = (uint16_t)max((uint32_t)MIN_FALL_MS, (uint32_t)fallDelayMs - totalDec);
+        lastScoreSpeedStep = curStep;
+      }
+    }
   }
 
   void lockPiece() {
@@ -290,6 +322,8 @@ struct TetrisGame {
     curY = 0;
 
     tFall = millis();
+    // reset score-based step tracker
+    lastScoreSpeedStep = 0;
     r.setHudHoldNextScore(holdType, (uint8_t)nextPiece.type, PIECE_COLORS, score);
   }
 
