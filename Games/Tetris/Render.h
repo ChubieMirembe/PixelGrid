@@ -160,6 +160,11 @@ static inline uint8_t charToMask(char ch) {
       return SEG_BY_ID(1) | SEG_BY_ID(2) | SEG_BY_ID(5) | SEG_BY_ID(6) | SEG_BY_ID(7);
     case 'L':
       return SEG_BY_ID(1) | SEG_BY_ID(5) | SEG_BY_ID(6);
+    case 'H':
+      return SEG_BY_ID(1) | SEG_BY_ID(3) | SEG_BY_ID(4) | SEG_BY_ID(6) | SEG_BY_ID(7);
+    case 'O':
+      return SEG_BY_ID(1) | SEG_BY_ID(2) | SEG_BY_ID(3) | SEG_BY_ID(4) | SEG_BY_ID(5) | SEG_BY_ID(6);
+
     default:
       return 0;
   }
@@ -295,7 +300,113 @@ static inline uint32_t scoreColorSmoothByScore(Adafruit_NeoPixel& strip, uint32_
     if (w > 0) w -= gap; // remove trailing gap
     return w;
   }
+  void drawTitleScroll_PIXELCATS(int16_t baseX){
+    clearAllToBackground();
 
+    int16_t y0 = (int16_t)((PLAY_H - 7) / 2);
+    
+      static const uint8_t P_[7] = {
+      0b11110,
+      0b10001, 
+      0b10001, 
+      0b11110, 
+      0b10000, 
+      0b10000, 
+      0b10000
+    };
+    static const uint8_t I_[7] = {
+      0b11111,
+      0b00100,
+      0b00100,
+      0b00100,
+      0b00100,
+      0b00100,
+      0b11111
+    };
+    static const uint8_t X_[7] = {
+      0b10001, 
+      0b01010, 
+      0b00100, 
+      0b00100, 
+      0b00100, 
+      0b01010, 
+      0b10001
+    };
+    static const uint8_t E_[7] = {
+      0b11111,
+      0b10000,
+      0b10000,
+      0b11110,
+      0b10000,
+      0b10000,
+      0b11111
+    };
+    static const uint8_t L_[7] = {
+      0b10000, 
+      0b10000, 
+      0b10000, 
+      0b10000, 
+      0b10000, 
+      0b10000, 
+      0b11111
+    };
+
+    static const uint8_t C_[7] = {
+      0b01110,
+      0b10001,
+      0b10000,
+      0b10000,
+      0b10000,
+      0b10001,
+      0b01110
+    };
+    static const uint8_t A_[7] = {
+      0b01110,
+      0b10001,
+      0b10001,
+      0b11111,
+      0b10001,
+      0b10001,
+      0b10001
+    };
+    static const uint8_t T_[7] = {
+      0b11111,
+      0b00100,
+      0b00100,
+      0b00100,
+      0b00100,
+      0b00100,
+      0b00100
+    };
+    static const uint8_t S_[7] = {
+      0b01111,
+      0b10000,
+      0b10000,
+      0b01110,
+      0b00001,
+      0b00001,
+      0b11110
+    };
+    uint32_t pink = strip ? strip->Color(255, 105, 180) : TEXT_COLOR;
+    int16_t x = baseX;
+
+    // PIXEL in pink
+    drawChar5x7(x,      y0, P_, pink); x += 6;
+    drawChar5x7(x,      y0, I_, pink); x += 6;
+    drawChar5x7(x,      y0, X_, pink); x += 6;
+    drawChar5x7(x,      y0, E_, pink); x += 6;
+    drawChar5x7(x,      y0, L_, pink); x += 6;
+
+    x += 1;
+
+    // CATS in pink
+    drawChar5x7(x,      y0, C_, pink); x += 6;
+    drawChar5x7(x,      y0, A_, pink); x += 6;
+    drawChar5x7(x,      y0, T_, pink); x += 6;
+    drawChar5x7(x,      y0, S_, pink); x += 6;
+
+    show();
+  }
   void drawTitleScroll_TETRIS(int16_t baseX) {
     clearAllToBackground();
 
@@ -349,15 +460,60 @@ static inline uint32_t scoreColorSmoothByScore(Adafruit_NeoPixel& strip, uint32_
       0b11110
     };
 
-    // Additional glyphs for "C A T S"
-    static const uint8_t C_[7] = {
-      0b01110,
+    
+
+    // word:  T E T R I S
+    // each letter 5px + 1px gap => 6px advance; use a small 1px word gap
+    int16_t x = baseX;
+
+
+    
+
+    // TETRIS in TEXT_COLOR
+    drawChar5x7(x,      y0, T_, TEXT_COLOR); x += 6;
+    drawChar5x7(x,      y0, E_, TEXT_COLOR); x += 6;
+    drawChar5x7(x,      y0, T_, TEXT_COLOR); x += 6;
+    drawChar5x7(x,      y0, R_, TEXT_COLOR); x += 6;
+    drawChar5x7(x,      y0, I_, TEXT_COLOR); x += 6;
+    drawChar5x7(x,      y0, S_, TEXT_COLOR);
+
+    show();
+  }
+
+  void drawGameOverScroll_TRYAGAIN(int16_t baseX) {
+    // Fill the whole display with the game-over red background
+    fillAll(GAMEOVER_RED);
+
+    // Center the 7px tall text in the play area
+    int16_t y0 = (int16_t)((PLAY_H - 7) / 2);
+
+    // 5x7 glyphs used for "TRY AGAIN"
+    static const uint8_t T_[7] = {
+      0b11111,
+      0b00100,
+      0b00100,
+      0b00100,
+      0b00100,
+      0b00100,
+      0b00100
+    };
+    static const uint8_t R_[7] = {
+      0b11110,
       0b10001,
-      0b10000,
-      0b10000,
-      0b10000,
       0b10001,
-      0b01110
+      0b11110,
+      0b10100,
+      0b10010,
+      0b10001
+    };
+    static const uint8_t Y_[7] = {
+      0b10001,
+      0b01010,
+      0b00100,
+      0b00100,
+      0b00100,
+      0b00100,
+      0b00100
     };
     static const uint8_t A_[7] = {
       0b01110,
@@ -368,29 +524,51 @@ static inline uint32_t scoreColorSmoothByScore(Adafruit_NeoPixel& strip, uint32_
       0b10001,
       0b10001
     };
-    // reuse T_ for the T in CATS, and S_ for S
+    static const uint8_t G_[7] = {
+      0b01110,
+      0b10001,
+      0b10000,
+      0b10111,
+      0b10001,
+      0b10001,
+      0b01110
+    };
+    static const uint8_t I_[7] = {
+      0b11111,
+      0b00100,
+      0b00100,
+      0b00100,
+      0b00100,
+      0b00100,
+      0b11111
+    };
+    static const uint8_t N_[7] = {
+      0b10001,
+      0b11001,
+      0b10101,
+      0b10011,
+      0b10001,
+      0b10001,
+      0b10001
+    };
 
-    // word: C A T S  T E T R I S
-    // each letter 5px + 1px gap => 6px advance; use a small 1px word gap
+    uint32_t col = strip ? strip->Color(255, 255, 255) : TEXT_COLOR;
     int16_t x = baseX;
 
-    // CATS in pink
-    uint32_t pink = strip ? strip->Color(255, 105, 180) : TEXT_COLOR;
-    drawChar5x7(x,      y0, C_, pink); x += 6;
-    drawChar5x7(x,      y0, A_, pink); x += 6;
-    drawChar5x7(x,      y0, T_, pink); x += 6;
-    drawChar5x7(x,      y0, S_, pink); x += 6;
+    // TRY
+    drawChar5x7(x,      y0, T_, col); x += 6;
+    drawChar5x7(x,      y0, R_, col); x += 6;
+    drawChar5x7(x,      y0, Y_, col); x += 6;
 
-    // small gap between words
+    // small space between words
     x += 1;
 
-    // TETRIS in TEXT_COLOR
-    drawChar5x7(x,      y0, T_, TEXT_COLOR); x += 6;
-    drawChar5x7(x,      y0, E_, TEXT_COLOR); x += 6;
-    drawChar5x7(x,      y0, T_, TEXT_COLOR); x += 6;
-    drawChar5x7(x,      y0, R_, TEXT_COLOR); x += 6;
-    drawChar5x7(x,      y0, I_, TEXT_COLOR); x += 6;
-    drawChar5x7(x,      y0, S_, TEXT_COLOR);
+    // AGAIN
+    drawChar5x7(x,      y0, A_, col); x += 6;
+    drawChar5x7(x,      y0, G_, col); x += 6;
+    drawChar5x7(x,      y0, A_, col); x += 6;
+    drawChar5x7(x,      y0, I_, col); x += 6;
+    drawChar5x7(x,      y0, N_, col); x += 6;
 
     show();
   }
