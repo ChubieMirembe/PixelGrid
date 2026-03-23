@@ -3,10 +3,10 @@
 Target: 10x20 PixelGrid (Adafruit_NeoPixel + PixelGridCore) on Arduino
 Controls:
 
-* LED data: pin 2
-* Buttons (pins 3,4,9,10): serve/restart only
-* Joystick left/right (pins 6,7): move paddle (auto-repeat while held)
-* Joystick up/down (pins 5,8): unused
+* LED data: pin 5
+* Buttons (pins 3, 4, 10, 11): serve/restart only
+* Joystick left/right (pins 7, 8): move paddle (auto-repeat while held)
+* Joystick up/down (pins 6, 9): unused in Breakout
 
 Features:
 
@@ -61,17 +61,17 @@ Create `Pins.h` and add:
 #include <Arduino.h>
 
 #define PIXEL_BUFFER_SIZE 300
-#define PIN_LED 2
+#define PIN_LED 5
 
 #define PIN_BTN1 3
 #define PIN_BTN2 4
-#define PIN_BTN3 9
-#define PIN_BTN4 10
+#define PIN_BTN3 10
+#define PIN_BTN4 11
 
-#define PIN_JOY_UP    5
-#define PIN_JOY_LEFT  6
-#define PIN_JOY_RIGHT 7
-#define PIN_JOY_DOWN  8
+#define PIN_JOY_UP 6
+#define PIN_JOY_LEFT 7
+#define PIN_JOY_RIGHT 8
+#define PIN_JOY_DOWN 9
 
 static const uint8_t PREVIEW_ROWS = 0;
 static const uint8_t PLAY_H = 20;

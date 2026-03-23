@@ -20,6 +20,10 @@ In the Games folder:
 * Define all pins and fixed numbers:
 
   * LED data pin, button pins, joystick pins
+    * Use ESP32-S3 mapping:
+    * LED data pin: 2
+    * Buttons: 3, 4, 10, 11
+    * Joystick: UP 6, LEFT 7, RIGHT 8, DOWN 9
   * grid dimensions 10x20
   * paddle width, brick zone rows
   * time step constants (frame ms, ball ms, brick drop ms)

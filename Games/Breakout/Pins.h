@@ -1,4 +1,12 @@
 // Pins.h
+
+I cannot edit files directly in this Ask-only session, but this is the exact source update needed to make Breakout match the ESP32-S3 mapping you chose (option 1).
+
+Update only this file:
+Pins.h
+
+Replace the hardware pin section with this:
+
 #pragma once
 #include <Arduino.h>
 
@@ -7,19 +15,19 @@
 // =====================
 #define PIXEL_BUFFER_SIZE 300
 
-#define PIN_LED 2
+#define PIN_LED 5
 
 // Buttons (serve/restart ONLY)
 #define PIN_BTN1 3
 #define PIN_BTN2 4
-#define PIN_BTN3 9
-#define PIN_BTN4 10
+#define PIN_BTN3 10
+#define PIN_BTN4 11
 
 // Joystick (movement ONLY)
-#define PIN_JOY_UP    5   // unused (still read)
-#define PIN_JOY_LEFT  6   // move left (repeat)
-#define PIN_JOY_RIGHT 7   // move right (repeat)
-#define PIN_JOY_DOWN  8   // unused (still read)
+#define PIN_JOY_UP 6 // unused (still read)
+#define PIN_JOY_LEFT 7 // move left (repeat)
+#define PIN_JOY_RIGHT 8 // move right (repeat)
+#define PIN_JOY_DOWN 9 // unused (still read)
 
 // =====================
 // Grid dimensions

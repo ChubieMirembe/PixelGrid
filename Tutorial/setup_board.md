@@ -32,11 +32,12 @@ Go to: Tools → Board
 
 Select your board:
 
-| Board | Select |
-|------|--------|
-| Arduino Uno | Arduino Uno |
-| Arduino Mega | Arduino Mega 2560 |
-| Arduino Nano | Arduino Nano |
+| Board        | Select                |
+|--------------|-----------------------|
+| Arduino Uno  | Arduino Uno           |
+| Arduino Mega | Arduino Mega 2560     |
+| Arduino Nano | Arduino Nano          |
+| Arduino Nano | Arduino Nano ESP32-S3 |
 
 ---
 
@@ -52,6 +53,7 @@ If no port appears:
 - Reconnect the USB cable  
 - Restart Arduino IDE  
 - Try another USB port  
+- Install/update ESP32 USB drivers if required by your board
 
 ---
 

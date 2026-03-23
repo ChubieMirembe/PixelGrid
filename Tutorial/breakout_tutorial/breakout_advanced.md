@@ -22,7 +22,7 @@ Build Breakout by splitting responsibilities into 5 parts:
 
 2. In `Pins.h`:
 
-   * Put every pin define (LED=2, buttons 3/4/9/10, joystick 5/6/7/8)
+   * Put every pin define (LED=5, buttons 3/4/10/11, joystick 6/7/8/9)
    * Put grid size (10x20), paddle settings, timing settings (frame, ball step, brick drop), repeat tuning.
 
 3. In `Input`:

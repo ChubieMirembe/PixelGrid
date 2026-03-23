@@ -9,18 +9,16 @@
 ## Controls
 
 ### Movement (Joystick)
-- **LEFT** → Move piece left  
-- **RIGHT** → Move piece right  
-- **DOWN** → Soft drop (piece falls faster while held)  
-- **UP** → Hold current piece  
+* UP (Pin 6) → Hold current piece
+* LEFT (Pin 7) → Move piece left
+* RIGHT (Pin 8) → Move piece right
+* DOWN (Pin 9) → Soft drop (piece falls faster while held)
 
 ### Rotation (Buttons)
-- **Button 1 (Pin 3)** → Rotate left  
-- **Button 2 (Pin 4)** → Rotate right  
-- **Button 3 (Pin 9)** → Rotate left  
-- **Button 4 (Pin 10)** → Rotate right  
-
-(Buttons are duplicated so the game is comfortable to play.)
+* Button 1 (Pin 3) → Rotate left
+* Button 2 (Pin 4) → Rotate right
+* Button 3 (Pin 10) → Rotate left
+* Button 4 (Pin 11) → Rotate right
 
 ---
 

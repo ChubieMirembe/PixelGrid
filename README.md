@@ -1,92 +1,111 @@
 # PixelGrid
 
-
-PixelGrid is an Arduino-based LED matrix game collection built for a custom PixelGrid board. This repo includes playable games, a shared core library, and setup guides to get a first-time user from wiring to uploading sketches.
+PixelGrid is an Arduino-based LED matrix game collection for a custom PixelGrid board.  
+This repository includes playable games, shared libraries, hardware test sketches, and setup/tutorial documentation.
 
 ## What’s in this repo
 
-- **Games/**: Playable sketches (currently **Tetris**).
-- **libraries/**: Local Arduino libraries used by the games, including **PixelGridCore**.
-- **pixeltest/**: A hardware verification sketch to confirm the board, LEDs, and buttons are wired correctly.
-- **Tutorial/**: Step-by-step setup, upload guides, and the tutorial for building your own game.
+- Games: Playable sketches:
+  - [Games/Tetris](Games/Tetris)
+  - [Games/Breakout](Games/Breakout)
+- Libraries: Local Arduino libraries used by sketches:
+  - [libraries/PixelGridcore](libraries/PixelGridcore)
+  - [libraries/Adafruit_NeoPixel](libraries/Adafruit_NeoPixel)
+  - [libraries/FastLED](libraries/FastLED)
+  - [libraries/Firmata](libraries/Firmata)
+- Hardware test sketch:
+  - [pixeltest/pixeltest.ino](pixeltest/pixeltest.ino)
+- Joystick utility sketch:
+  - [joysticks/joysticks.ino](joysticks/joysticks.ino)
+- Tutorials and setup guides:
+  - [Tutorial](Tutorial)
+- Host-side tests:
+  - [tests](tests)
 
 ## Requirements
 
-- **Arduino IDE** installed on your computer.
-- A **PixelGrid board** (or compatible Arduino + LED matrix setup).
-- A supported Arduino board such as **Uno**, **Mega 2560**, or **Nano**.
-- USB data cable for connecting the board.
+- Arduino IDE installed.
+- PixelGrid board (or compatible board + LED matrix wiring).
+- USB data cable.
+- Correct board selected in Arduino IDE for the sketch you are uploading.
 
-## How to work with this repo
+## How this repo is intended to be used
 
-PixelGrid uses Arduino's Sketchbook layout, so you will point the Arduino Sketchbook location to the repo root. That lets the IDE pick up the local libraries in `libraries/` and the sketches in `Games/` and `pixeltest/`.
-
-If you're building your own game, start in the tutorial where you create a new sketch and use the PixelGridCore library. The tutorial is the canonical place for writing your first game.
-
-### Opening sketches in Arduino IDE
-
-1. Launch **Arduino IDE**.
-2. Open a sketch from this repo:
-   - Game: `Games/Tetris/Tetris.ino`
-   - Hardware test: `pixeltest/pixeltest.ino`
-3. Select the correct **Board** and **Port** in **Tools**.
-4. Click **Upload**.
-
-### Local libraries
-
-This repo vendors its Arduino libraries under `libraries/`. When the Sketchbook location is set to the repo root, these libraries are available without any additional installs.
-If you already have system-wide copies of the same libraries, the local versions here will be used for the sketches in this repo.
+PixelGrid follows the Arduino Sketchbook layout.  
+Set your Arduino Sketchbook location to the repository root so Arduino IDE can discover local libraries in [libraries](libraries) and sketches in [Games](Games), [pixeltest](pixeltest), and [joysticks](joysticks).
 
 ## Quick start (first-time setup)
 
-1. **Wire the board** using the circuit diagram:
-   - `Tutorial/Circuit Diagram.pdf`
-2. **Set the Arduino Sketchbook location** to this repo so the local libraries are detected:
-   - Follow `Tutorial/setup_sketchbook.md`.
-3. **Connect the board** and confirm Arduino recognizes it:
-   - Select the correct board and port in Arduino IDE.
-4. **Run the pixel test sketch** to verify LEDs and buttons:
-   - Follow `Tutorial/setup_board.md`.
-5. **Upload a game** (example: Tetris):
-   - Follow `Tutorial/setup_upload.md`.
+1. Wire the board using:
+   - [Tutorial/ESP32-S3 Circuit Diagram.pdf](Tutorial/ESP32-S3%20Circuit%20Diagram.pdf)
+2. Set Arduino Sketchbook location to this repository:
+   - [Tutorial/setup_sketchbook.md](Tutorial/setup_sketchbook.md)
+3. Verify board connection and basic hardware:
+   - [Tutorial/setup_board.md](Tutorial/setup_board.md)
+4. Upload a game:
+   - [Tutorial/setup_upload.md](Tutorial/setup_upload.md)
 
-## Creating your own game
+## Opening sketches in Arduino IDE
 
-1. Open the tutorial and follow the guide for creating a new sketch:
-   - `Tutorial/setup_upload.md`
-2. Use the `PixelGridCore` library from `libraries/PixelGridcore` for the display, input, and shared utilities.
-3. Place your new game in `Games/YourGameName/YourGameName.ino`.
+Open one of the following:
 
-## Uploading a game
+- Tetris: [Games/Tetris/Tetris.ino](Games/Tetris/Tetris.ino)
+- Breakout: [Games/Breakout/Breakout.ino](Games/Breakout/Breakout.ino)
+- Pixel hardware test: [pixeltest/pixeltest.ino](pixeltest/pixeltest.ino)
+- Joystick readout test: [joysticks/joysticks.ino](joysticks/joysticks.ino)
 
-1. Open Arduino IDE.
-2. Open the game sketch, for example:
-   - `Games/Tetris/Tetris.ino`
-3. Select the correct **Board** and **Port** in **Tools**.
-4. Click **Upload**.
+Then select the correct Board and Port in Tools, and click Upload.
 
-See the full walkthrough in `Tutorial/setup_upload.md`.
+## Local libraries
+
+This repository vendors libraries under [libraries](libraries).  
+When Sketchbook location is set to the repository root, these local copies are used by sketches in this project.
+
+## Game and tutorial docs
+
+- Tetris play guide: [Tutorial/tetris_tutorial.md](Tutorial/tetris_tutorial.md)
+- Breakout tutorial set:
+  - [Tutorial/breakout_tutorial/breakout_beginner.md](Tutorial/breakout_tutorial/breakout_beginner.md)
+  - [Tutorial/breakout_tutorial/breakout_intermediate.md](Tutorial/breakout_tutorial/breakout_intermediate.md)
+  - [Tutorial/breakout_tutorial/breakout_advanced.md](Tutorial/breakout_tutorial/breakout_advanced.md)
+
+## Tests
+
+Host-based Tetris tests are in [tests](tests).
+
+- Overview: [tests/README.md](tests/README.md)
+- Test plan: [tests/TEST_PLAN.md](tests/TEST_PLAN.md)
+- Test runner source: [tests/tetris_game_tests.cpp](tests/tetris_game_tests.cpp)
 
 ## Project structure
 
-```
 PixelGrid/
-├── Games/
-│   └── Tetris/
-├── libraries/
-│   ├── Adafruit_NeoPixel/
-│   ├── FastLED/
-│   └── PixelGridcore/
-├── pixeltest/
-│   └── pixeltest.ino
-└── Tutorial/
-    ├── Circuit Diagram.pdf
-    ├── setup_board.md
-    ├── setup_sketchbook.md
-    └── setup_upload.md
-```
+- [Games](Games)
+  - [Games/Tetris](Games/Tetris)
+  - [Games/Breakout](Games/Breakout)
+- [libraries](libraries)
+  - [libraries/PixelGridcore](libraries/PixelGridcore)
+  - [libraries/Adafruit_NeoPixel](libraries/Adafruit_NeoPixel)
+  - [libraries/FastLED](libraries/FastLED)
+  - [libraries/Firmata](libraries/Firmata)
+- [pixeltest](pixeltest)
+  - [pixeltest/pixeltest.ino](pixeltest/pixeltest.ino)
+- [joysticks](joysticks)
+  - [joysticks/joysticks.ino](joysticks/joysticks.ino)
+- [tests](tests)
+  - [tests/README.md](tests/README.md)
+  - [tests/TEST_PLAN.md](tests/TEST_PLAN.md)
+  - [tests/tetris_game_tests.cpp](tests/tetris_game_tests.cpp)
+- [Tutorial](Tutorial)
+  - [Tutorial/ESP32-S3 Circuit Diagram.pdf](Tutorial/ESP32-S3%20Circuit%20Diagram.pdf)
+  - [Tutorial/setup_board.md](Tutorial/setup_board.md)
+  - [Tutorial/setup_sketchbook.md](Tutorial/setup_sketchbook.md)
+  - [Tutorial/setup_upload.md](Tutorial/setup_upload.md)
+  - [Tutorial/tetris_tutorial.md](Tutorial/tetris_tutorial.md)
+  - [Tutorial/breakout_tutorial](Tutorial/breakout_tutorial)
 
 ## Troubleshooting
 
-If the board does not light up or upload fails, see the troubleshooting steps in:
-- `Tutorial/setup_board.md`
+If upload fails or hardware does not respond, start with:
+- [Tutorial/setup_board.md](Tutorial/setup_board.md)
+- [Tutorial/setup_upload.md](Tutorial/setup_upload.md)
