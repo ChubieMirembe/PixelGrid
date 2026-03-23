@@ -1,41 +1,31 @@
-// Pins.h
 #pragma once
+#include <Arduino.h>
 
-// -------- Hardware --------
-#define PIXEL_BUFFER_SIZE 300
-#define PIN_LED 2
+// ===== Hardware =====
+#define PIXEL_BUFFER_SIZE 256
+#define PIN_LED 5
 
-// Buttons
-#define PIN_BTN1 3   // rotate left
-#define PIN_BTN2 4   // rotate right
-#define PIN_BTN3 9   // rotate left
-#define PIN_BTN4 10  // rotate right
+// Buttons (rotate left/right in your Tetris)
+#define PIN_BTN1 3
+#define PIN_BTN2 4
+#define PIN_BTN3 10
+#define PIN_BTN4 12
 
 // Joystick directions (digital)
-#define PIN_JOY_UP    5   // hold
-#define PIN_JOY_LEFT  6   // move left (repeat)
-#define PIN_JOY_RIGHT 7   // move right (repeat)
-#define PIN_JOY_DOWN  8   // soft drop while held
+#define PIN_JOY_UP    6   // hold
+#define PIN_JOY_LEFT  7   // move left (repeat)
+#define PIN_JOY_RIGHT 8   // move right (repeat)
+#define PIN_JOY_DOWN  9   // soft drop while held
 
-// -------- Display layout --------
-static const uint8_t PREVIEW_ROWS = 2;
-static const uint8_t PLAY_H = 18;
+// ===== Grid =====
+static const uint8_t PREVIEW_ROWS = 0;
+static const uint8_t PLAY_H = 20;
 static const uint8_t W = 10;
 static const uint8_t MATRIX_ROWS = PREVIEW_ROWS + PLAY_H;
 
-// -------- Input debounce --------
+// ===== Timing =====
 static const uint16_t DEBOUNCE_MS = 18;
 
-// -------- Gravity / leveling --------
-static const uint16_t BASE_FALL_MS = 550;
-static const uint8_t  LINES_PER_LEVEL = 10;
-static const uint16_t FALL_DECREMENT = 40;
-static const uint16_t MIN_FALL_MS = 80;
-
-// -------- Soft drop tuning --------
-static const uint16_t SOFT_DROP_MIN_MS = 55;   // fastest while held
-static const uint16_t SOFT_DROP_DIVISOR = 4;   // fallDelayMs / divisor (clamped)
-
-// -------- Move auto-repeat (DAS/ARR-like) --------
-static const uint16_t MOVE_REPEAT_START_MS = 160; // delay before repeating
-static const uint16_t MOVE_REPEAT_MS = 65;        // repeat interval once repeating
+// Joystick repeat tuning (DAS/ARR-ish)
+static const uint16_t MOVE_REPEAT_START_MS = 160;
+static const uint16_t MOVE_REPEAT_MS       = 65;

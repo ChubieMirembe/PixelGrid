@@ -1,0 +1,26 @@
+name: Tetris tests
+
+on:
+  push:
+    paths:
+      - "Games/Tetris/**"
+      - "tests/**"
+      - ".github/workflows/tetris-tests.yml"
+  pull_request:
+    paths:
+      - "Games/Tetris/**"
+      - "tests/**"
+      - ".github/workflows/tetris-tests.yml"
+
+jobs:
+  tetris-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build tests
+        run: g++ -std=c++17 -I tests/stubs -I Games/Tetris tests/tetris_game_tests.cpp -o tests/tetris_game_tests
+
+      - name: Run tests
+        run: ./tests/tetris_game_tests
