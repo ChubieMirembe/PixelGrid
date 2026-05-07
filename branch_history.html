@@ -1,0 +1,131 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Git Branch History</title>
+<style>
+body {
+    margin: 0;
+    background: #020617;
+    color: #e5e7eb;
+    font-family: Arial, sans-serif;
+}
+
+.page {
+    padding: 40px;
+}
+
+.header {
+    margin-bottom: 28px;
+}
+
+h1 {
+    margin: 0;
+    font-size: 34px;
+}
+
+.subtitle {
+    color: #94a3b8;
+    margin-top: 8px;
+}
+
+.graph-box {
+    background: #050816;
+    border: 1px solid #1e293b;
+    border-radius: 14px;
+    padding: 24px;
+    overflow-x: auto;
+}
+
+pre {
+    font-family: Consolas, "Courier New", monospace;
+    font-size: 14px;
+    line-height: 1.55;
+    white-space: pre;
+    margin: 0;
+}
+
+.footer {
+    margin-top: 24px;
+    color: #64748b;
+    font-size: 12px;
+}
+</style>
+</head>
+<body>
+<div class="page">
+    <div class="header">
+        <h1>Git Branch History</h1>
+        <div class="subtitle">Visual commit graph generated from all branches</div>
+    </div>
+
+    <div class="graph-box">
+        <pre>* 560b8e7 infrastructure Chubie.Mirembe  (HEAD -&gt; master, origin/master, origin/HEAD)
+* 26bc3b5 included class diagram and overall architecture for future developers Chubie.Mirembe 
+* ecdaeff updated the tutorial to match the current arduino board Chubie.Mirembe 
+* 3f30209 updated the circuit diagram Chubie.Mirembe 
+*   c5bf462 Merge pull request #6 from Xetheneon/development Chubie 
+|\  
+| * c505b03 implemented pixel cats scrolling title, better code display on game over along with try again scrolling text George Morter 
+| * 9052221 visual changes to make title look nicer as well as score or code return (depending on state of server) George Morter 
+| * 4eb67fb removed head and tail from z and s to make it look better as well as added in a hue shift for score George Morter 
+| * 899ebe6 made the playable area back to full height since held and next are in the int display George Morter 
+| * 40bbd7c fixed arduino not going back to standalone after c# is stopped running George Morter 
+| * 267e6a6 Updated tetris and libraries to use segment display as hold and next blocks George Morter 
+| * 87c81b4 fixed some bugs for c# to run properly on the arduino, as well as int display working too George Morter 
+| * cef6a75 fixed arduino switching to c# frames and back again George Morter 
+| * b43bc6a updated tetris and included a netsubmit to use config for eduroam and the server to upload scores George Morter 
+| * 08400f7 this is the real one Chubie.Mirembe  (origin/development)
+| * 774acc7 modified to allow the board to switch between standalone and host mode Chubie.Mirembe 
+| * b74a1df i&#x27;m not sure Chubie.Mirembe 
+| * 1afce61 internt connection with nano board Chubie.Mirembe 
+| * 524973e test for test Chubie.Mirembe 
+| *   9641089 Merge pull request #5 from ChubieMirembe/codex/create-regression-and-unit-testing-plan Chubie 
+| |\  
+| | * 4f88f4e Add test plan for Tetris host tests Chubie 
+| |/  
+| * 8bc1381 created instructions for tetris Chubie.Mirembe 
+| *   5d14411 Merge pull request #4 from ChubieMirembe/codex/update-readme-with-repo-usage-instructions Chubie 
+| |\  
+| | * 7319b03 Update README with repo workflow Chubie 
+| * | 9d571a5 Refactor code structure for improved readability and maintainability Chubie.Mirembe 
+| * | 8777545 Refactored Breakout tutorial structure: Chubie.Mirembe 
+| |/  
+| * 1aa8968 attract mode for tetris Chubie.Mirembe 
+* | 97fa701 Merge pull request #3 from ChubieMirembe/development Chubie 
+|\| 
+| * 71fcdca modified tutorial Chubie.Mirembe 
+| * fc40c0d created the tutorial for breakout Chubie.Mirembe 
+| * 0661b55 Add README.md with project overview, setup instructions, and troubleshooting guide Chubie.Mirembe 
+| * 394689e Refactored the breakout and tetris games Chubie.Mirembe 
+| * d18bc43 added the circuit diagram Chubie.Mirembe 
+| * 71b2bd8 remove outdated scoring and control comments from Tetris game Chubie.Mirembe 
+| * 0011cc5 modified breaakout to match the pin layout Chubie.Mirembe 
+| * 879c637 created breakout and moodified tetris Chubie.Mirembe 
+| * aa058e0 moved the libraries to inside the repo and implemented the breakout game I will be creating the tutorial for Chubie.Mirembe 
+| * 4658a8e modified the setup instructions Chubie.Mirembe 
+| * ab61d4f created the setup tutorial Chubie.Mirembe 
+|/  
+*   2b59582 Merge pull request #1 from ChubieMirembe/folder_layout Chubie 
+|\  
+| * 7ffa4aa refactored the fodler layout to simplify the process of adding new games Chubie.Mirembe 
+|/  
+* 3a18d2d implemented a ghost block Chubie.Mirembe 
+* a617056 Implemented a hold and preview feature Chubie.Mirembe 
+* 7c082f6 Add Tetris game implementation with PixelGrid classes Chubie.Mirembe 
+* 45bdf4f Update NeoPixel pin configuration to use pin 6 Chubie.Mirembe 
+* 00bc8b3 LCD_Panel uses chars DavidParkerDr 
+* ad9c858 10 frames a second! DavidParkerDr 
+* 657b28f stored DavidParkerDr 
+* b59bb47 moved files DavidParkerDr 
+* 6f34f75 working? DavidParkerDr 
+* 5903ef7 Based project files DavidParkerDr </pre>
+    </div>
+
+    <div class="footer">
+        Generated on 07 May 2026, 14:32
+    </div>
+</div>
+</body>
+</html>
